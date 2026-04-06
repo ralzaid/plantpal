@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -18,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.example.plantpal.ui.theme.PlantPalTheme
 
 @Composable
 fun HomeDashboardScreen(
@@ -54,12 +56,15 @@ fun HomeDashboardContent(
         contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 16.dp)
     ) {
         item {
-            Text("Your Plants", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Text("Collection", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         }
 
         if (plants.isEmpty()) {
             item {
-                Card(modifier = Modifier.fillMaxWidth()) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                ) {
                     Column(
                         modifier = Modifier.padding(20.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -90,7 +95,10 @@ fun PlantSummaryCard(
     plant: UiPlant,
     onViewDetails: () -> Unit
 ) {
-    Card(modifier = Modifier.fillMaxWidth()) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
         Column(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
@@ -98,13 +106,14 @@ fun PlantSummaryCard(
             Text(
                 plant.nickname.ifBlank { plant.name },
                 style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
             )
-            Text("Species: ${plant.species.ifBlank { "Unknown" }}")
-            Text("Location: ${plant.location}")
-            Text("Light: ${plant.lightNeeds}")
-            Text("Water every ${plant.wateringFrequencyDays} days")
-            Text("Last watered: ${formatStoredDate(plant.lastWateredDate)}")
+            Text("Species: ${plant.species.ifBlank { "Unknown" }}", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("Location: ${plant.location}", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("Light: ${plant.lightNeeds}", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("Water every ${plant.wateringFrequencyDays} days", color = MaterialTheme.colorScheme.onSurface)
+            Text("Last watered: ${formatStoredDate(plant.lastWateredDate)}", color = MaterialTheme.colorScheme.onSurfaceVariant)
 
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedButton(onClick = onViewDetails, modifier = Modifier.weight(1f)) {
@@ -118,7 +127,7 @@ fun PlantSummaryCard(
 @Preview(showBackground = true, widthDp = 412, heightDp = 915)
 @Composable
 fun HomeDashboardPreview() {
-    MaterialTheme {
+    PlantPalTheme {
         HomeDashboardContent(
             profile = previewProfile,
             plants = previewPlants,

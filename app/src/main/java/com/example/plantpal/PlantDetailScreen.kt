@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -20,6 +21,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+import com.example.plantpal.ui.theme.PlantPalTheme
 
 @Composable
 fun PlantDetailScreen(
@@ -52,7 +54,10 @@ fun PlantDetailContent(
         contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 16.dp)
     ) {
         item {
-            Card(modifier = Modifier.fillMaxWidth()) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+            ) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (plant.imageUrl != null) {
                         AsyncImage(
@@ -80,7 +85,10 @@ fun PlantDetailContent(
         }
 
         item {
-            Card(modifier = Modifier.fillMaxWidth()) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
+            ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
                         "Care Instructions",
@@ -112,7 +120,10 @@ fun PlantDetailContent(
         }
 
         item {
-            Card(modifier = Modifier.fillMaxWidth()) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+            ) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("Tracking features will be added later.")
                     Text("For now, this screen shows the plant details and overall structure of the app.")
@@ -125,7 +136,7 @@ fun PlantDetailContent(
 @Preview(showBackground = true, widthDp = 412, heightDp = 915)
 @Composable
 fun PlantDetailScreenPreview() {
-    MaterialTheme {
+    PlantPalTheme {
         PlantDetailContent(
             plant = previewPlants.first(),
             onDelete = { }

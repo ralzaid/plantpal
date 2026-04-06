@@ -12,7 +12,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
-import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -29,6 +29,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.example.plantpal.ui.theme.PlantPalTheme
 
 @Composable
 fun ProfileScreen(
@@ -75,7 +76,10 @@ fun ProfileScreen(
         }
 
         item {
-            Card(modifier = Modifier.fillMaxWidth()) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+            ) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     SettingRow(
                         title = "Daily reminders",
@@ -142,7 +146,7 @@ fun SettingRow(
 @Preview(showBackground = true, widthDp = 412, heightDp = 915)
 @Composable
 fun ProfileScreenPreview() {
-    MaterialTheme {
+    PlantPalTheme {
         ProfileScreen(
             profile = previewProfile,
             onSave = { _, _, _ -> },

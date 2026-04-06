@@ -19,9 +19,11 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -30,6 +32,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.example.plantpal.ui.theme.PlantPalTheme
 
 sealed class Screen {
     data object Login : Screen()
@@ -166,9 +169,16 @@ private fun PlantPalScaffold(
     val showBottomBar = currentScreen == Screen.Home || currentScreen == Screen.Profile
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
                 title = { Text(screenTitle(currentScreen)) },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background,
+                    titleContentColor = MaterialTheme.colorScheme.onBackground,
+                    navigationIconContentColor = MaterialTheme.colorScheme.primary,
+                    actionIconContentColor = MaterialTheme.colorScheme.primary
+                ),
                 navigationIcon = {
                     if (currentScreen == Screen.AddPlant || currentScreen is Screen.PlantDetail) {
                         IconButton(onClick = onNavigateHome) {
@@ -188,23 +198,42 @@ private fun PlantPalScaffold(
         bottomBar = {
             if (showBottomBar) {
                 Box {
-                    NavigationBar {
+                    NavigationBar(
+                        containerColor = MaterialTheme.colorScheme.surface,
+                        tonalElevation = 0.dp
+                    ) {
                         NavigationBarItem(
                             selected = currentScreen == Screen.Home,
                             onClick = onNavigateHome,
                             icon = { Icon(Icons.Default.Home, contentDescription = "Home") },
-                            label = { Text("Home") }
+                            label = { Text("Home") },
+                            colors = NavigationBarItemDefaults.colors(
+                                selectedIconColor = MaterialTheme.colorScheme.primary,
+                                selectedTextColor = MaterialTheme.colorScheme.primary,
+                                indicatorColor = MaterialTheme.colorScheme.secondaryContainer,
+                                unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         )
                         Spacer(modifier = Modifier.weight(1f, fill = true))
                         NavigationBarItem(
                             selected = currentScreen == Screen.Profile,
                             onClick = onNavigateProfile,
                             icon = { Icon(Icons.Default.Person, contentDescription = "Profile") },
-                            label = { Text("Profile") }
+                            label = { Text("Profile") },
+                            colors = NavigationBarItemDefaults.colors(
+                                selectedIconColor = MaterialTheme.colorScheme.primary,
+                                selectedTextColor = MaterialTheme.colorScheme.primary,
+                                indicatorColor = MaterialTheme.colorScheme.secondaryContainer,
+                                unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         )
                     }
                     FloatingActionButton(
                         onClick = onNavigateAdd,
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary,
                         modifier = Modifier
                             .align(androidx.compose.ui.Alignment.TopCenter)
                             .padding(top = 6.dp)
@@ -222,7 +251,7 @@ private fun PlantPalScaffold(
 @Preview(showBackground = true, widthDp = 412, heightDp = 915)
 @Composable
 fun PlantPalAppPreview() {
-    MaterialTheme {
+    PlantPalTheme {
         PlantPalScaffold(
             currentScreen = Screen.Home,
             onNavigateHome = { },
