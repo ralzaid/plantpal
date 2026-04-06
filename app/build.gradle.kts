@@ -3,7 +3,6 @@ import java.util.Properties
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
-    id("com.google.devtools.ksp")
     kotlin("plugin.serialization") version "2.0.21"
 }
 
@@ -20,18 +19,13 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        // Read the API keys from local.properties
         val localProperties = Properties()
         val localPropertiesFile = rootProject.file("local.properties")
         if (localPropertiesFile.exists()) {
-            localPropertiesFile.inputStream().use { 
-                localProperties.load(it)
-            }
+            localPropertiesFile.inputStream().use { localProperties.load(it) }
         }
-        val weatherKey = localProperties.getProperty("OPENWEATHER_API_KEY") ?: ""
         val perenualKey = localProperties.getProperty("PERENUAL_API_KEY") ?: ""
-        
-        buildConfigField("String", "OPENWEATHER_API_KEY", "\"$weatherKey\"")
+
         buildConfigField("String", "PERENUAL_API_KEY", "\"$perenualKey\"")
     }
 
@@ -54,10 +48,6 @@ android {
     }
 }
 
-ksp {
-    arg("room.generateKotlin", "true")
-}
-
 dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
@@ -68,28 +58,12 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
     implementation("androidx.compose.material:material-icons-extended")
-    
-    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.2")
-    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.2")
-
-    // Upgraded Room to 2.7.0-alpha11 for Kotlin 2.0 compatibility
-    val room_version = "2.7.0-alpha11"
-    implementation("androidx.room:room-runtime:$room_version")
-    implementation("androidx.room:room-ktx:$room_version")
-    ksp("androidx.room:room-compiler:$room_version")
-
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
-
-    // Networking & Serialization
-    implementation("com.squareup.retrofit2:retrofit:2.11.0")
-    implementation("com.squareup.retrofit2:converter-kotlinx-serialization:2.11.0")
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
 
     // Image Loading
     implementation("io.coil-kt:coil-compose:2.6.0")
-
-    // Location
-    implementation("com.google.android.gms:play-services-location:21.3.0")
+    implementation("com.squareup.retrofit2:retrofit:2.11.0")
+    implementation("com.squareup.retrofit2:converter-kotlinx-serialization:2.11.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
