@@ -1,0 +1,48 @@
+name: Android Release Artifact
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  build-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK packages
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0" "platform-tools"
+
+      - name: Make Gradle wrapper executable
+        run: chmod +x gradlew
+
+      - name: Build release artifacts
+        run: ./gradlew --no-daemon assembleRelease bundleRelease
+
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-release-artifacts
+          if-no-files-found: warn
+          path: |
+            app/build/outputs/apk/release/*.apk
+            app/build/outputs/bundle/release/*.aab
