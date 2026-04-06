@@ -37,105 +37,17 @@ import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
 import retrofit2.http.GET
 import retrofit2.http.Path
+import com.example.plantpal.ui.state.PlantViewModel
+import com.example.plantpal.data.local.PlantEntity
+import com.example.plantpal.data.local.WateringLogEntity
+import okhttp3.OkHttpClient
+import okhttp3.logging.HttpLoggingInterceptor
+
 
 // =====================================================
 // DATA LAYER (Room)
 // =====================================================
 
-@Entity(tableName = "plants")
-data class PlantEntity(
-    @PrimaryKey(autoGenerate = true) val id: Int = 0,
-    val name: String,
-    val nickname: String = "",
-    val species: String = "",
-    val location: String = "Indoor",
-    val lightNeeds: String = "Bright indirect light",
-    val wateringFrequencyDays: Int = 7,
-    val careInstructions: String,
-    val lastWateredDate: String = "Not watered yet",
-    val imageUrl: String? = null
-)
-
-@Entity(
-    tableName = "watering_logs",
-    foreignKeys = [
-        ForeignKey(
-            entity = PlantEntity::class,
-            parentColumns = ["id"],
-            childColumns = ["plantId"],
-            onDelete = ForeignKey.CASCADE
-        )
-    ],
-    indices = [Index("plantId")]
-)
-data class WateringLogEntity(
-    @PrimaryKey(autoGenerate = true) val id: Int = 0,
-    val plantId: Int,
-    val wateredOn: String,
-    val note: String = ""
-)
-
-@Dao
-interface PlantDao {
-    @Query("SELECT * FROM plants ORDER BY name ASC")
-    fun getAllPlants(): Flow<List<PlantEntity>>
-
-    @Query("SELECT * FROM plants WHERE id = :plantId LIMIT 1")
-    fun getPlantById(plantId: Int): Flow<PlantEntity?>
-
-    @Insert
-    suspend fun insertPlant(plant: PlantEntity)
-
-    @Update
-    suspend fun updatePlant(plant: PlantEntity)
-
-    @Delete
-    suspend fun deletePlant(plant: PlantEntity)
-}
-
-@Dao
-interface WateringLogDao {
-    @Query("SELECT * FROM watering_logs WHERE plantId = :plantId ORDER BY id DESC")
-    fun getLogsForPlant(plantId: Int): Flow<List<WateringLogEntity>>
-
-    @Insert
-    suspend fun insertLog(log: WateringLogEntity)
-}
-
-@Database(
-    entities = [PlantEntity::class, WateringLogEntity::class],
-    version = 2,
-    exportSchema = false
-)
-abstract class PlantDatabase : RoomDatabase() {
-    abstract fun plantDao(): PlantDao
-    abstract fun wateringLogDao(): WateringLogDao
-
-    companion object {
-        @Volatile
-        private var INSTANCE: PlantDatabase? = null
-
-        val MIGRATION_1_2 = object : androidx.room.migration.Migration(1, 2) {
-            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
-                db.execSQL("ALTER TABLE plants ADD COLUMN imageUrl TEXT")
-            }
-        }
-
-        fun getDatabase(app: Application): PlantDatabase {
-            return INSTANCE ?: synchronized(this) {
-                val instance = Room.databaseBuilder(
-                    app,
-                    PlantDatabase::class.java,
-                    "plantpal_db"
-                )
-                .addMigrations(MIGRATION_1_2)
-                .build()
-                INSTANCE = instance
-                instance
-            }
-        }
-    }
-}
 
 // =====================================================
 // PERENUAL API MODELS
@@ -170,6 +82,29 @@ data class PerenualDetails(
     @SerialName("default_image") val defaultImage: PerenualImage? = null
 )
 
+//interface PerenualApi {
+//    @GET("species-list")
+//    suspend fun searchPlants(
+//        @retrofit2.http.Query("key") apiKey: String,
+//        @retrofit2.http.Query("q") query: String
+//    ): PerenualSearchResponse
+//
+//    @GET("species/details/{id}")
+//    suspend fun getPlantDetails(
+//        @Path("id") id: Int,
+//        @retrofit2.http.Query("key") apiKey: String
+//    ): PerenualDetails
+//}
+//
+//object PerenualService {
+//    private val json = Json { ignoreUnknownKeys = true }
+//    private val retrofit = Retrofit.Builder()
+//        .baseUrl("https://perenual.com/api/v2/")
+//        .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
+//        .build()
+//
+//    val api: PerenualApi = retrofit.create(PerenualApi::class.java)
+//}
 interface PerenualApi {
     @GET("species-list")
     suspend fun searchPlants(
@@ -184,16 +119,27 @@ interface PerenualApi {
     ): PerenualDetails
 }
 
+
+
 object PerenualService {
     private val json = Json { ignoreUnknownKeys = true }
+
+    private val logging = HttpLoggingInterceptor().apply {
+        level = HttpLoggingInterceptor.Level.BODY
+    }
+
+    private val client = OkHttpClient.Builder()
+        .addInterceptor(logging)
+        .build()
+
     private val retrofit = Retrofit.Builder()
-        .baseUrl("https://perenual.com/api/")
+        .baseUrl("https://perenual.com/api/v2/")
+        .client(client)
         .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
         .build()
 
     val api: PerenualApi = retrofit.create(PerenualApi::class.java)
 }
-
 // =====================================================
 // WEATHER API
 // =====================================================
@@ -234,167 +180,13 @@ object WeatherService {
 // REPOSITORY
 // =====================================================
 
-class PlantRepository(
-    private val plantDao: PlantDao,
-    private val wateringLogDao: WateringLogDao
-) {
-    val allPlants: Flow<List<PlantEntity>> = plantDao.getAllPlants()
 
-    fun getPlantById(id: Int): Flow<PlantEntity?> = plantDao.getPlantById(id)
-
-    fun getLogsForPlant(plantId: Int): Flow<List<WateringLogEntity>> =
-        wateringLogDao.getLogsForPlant(plantId)
-
-    suspend fun addPlant(plant: PlantEntity) = plantDao.insertPlant(plant)
-
-    suspend fun deletePlant(plant: PlantEntity) = plantDao.deletePlant(plant)
-
-    suspend fun waterPlant(plant: PlantEntity, wateredOn: String) {
-        plantDao.updatePlant(plant.copy(lastWateredDate = wateredOn))
-        wateringLogDao.insertLog(
-            WateringLogEntity(
-                plantId = plant.id,
-                wateredOn = wateredOn,
-                note = "Watered"
-            )
-        )
-    }
-}
 
 // =====================================================
 // VIEWMODEL
 // =====================================================
 
-class PlantViewModel(application: Application) : AndroidViewModel(application) {
-    private val db = PlantDatabase.getDatabase(application)
-    private val repository = PlantRepository(db.plantDao(), db.wateringLogDao())
-    private val fusedLocationClient = LocationServices.getFusedLocationProviderClient(application)
 
-    val plants: StateFlow<List<PlantEntity>> = repository.allPlants
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-
-    private val _weatherState = MutableStateFlow<WeatherInfo?>(null)
-    val weatherState: StateFlow<WeatherInfo?> = _weatherState
-
-    private val _searchResults = MutableStateFlow<List<PerenualSearchResult>>(emptyList())
-    val searchResults: StateFlow<List<PerenualSearchResult>> = _searchResults
-
-    data class WeatherInfo(
-        val city: String,
-        val temp: Double,
-        val humidity: Int,
-        val recommendation: String
-    )
-
-    fun searchPerenual(query: String) {
-        if (query.isBlank()) {
-            _searchResults.value = emptyList()
-            return
-        }
-        viewModelScope.launch {
-            try {
-                val response = PerenualService.api.searchPlants(
-                    apiKey = BuildConfig.PERENUAL_API_KEY,
-                    query = query
-                )
-                _searchResults.value = response.data
-            } catch (e: Exception) {
-                _searchResults.value = emptyList()
-            }
-        }
-    }
-
-    suspend fun getPerenualDetails(id: Int): PerenualDetails? {
-        return try {
-            PerenualService.api.getPlantDetails(id, BuildConfig.PERENUAL_API_KEY)
-        } catch (e: Exception) {
-            null
-        }
-    }
-
-    fun getPlant(plantId: Int): Flow<PlantEntity?> = repository.getPlantById(plantId)
-
-    fun getLogs(plantId: Int): Flow<List<WateringLogEntity>> = repository.getLogsForPlant(plantId)
-
-    @SuppressLint("MissingPermission")
-    fun refreshWeather(apiKey: String) {
-        if (apiKey.isBlank()) return
-        viewModelScope.launch {
-            try {
-                fusedLocationClient.getCurrentLocation(
-                    Priority.PRIORITY_BALANCED_POWER_ACCURACY,
-                    CancellationTokenSource().token
-                ).addOnSuccessListener { location ->
-                    if (location != null) {
-                        viewModelScope.launch {
-                            try {
-                                val weather = WeatherService.api.getCurrentWeather(
-                                    location.latitude,
-                                    location.longitude,
-                                    apiKey
-                                )
-                                val recommendation = generateRecommendation(weather.main.temp, weather.main.humidity)
-                                _weatherState.value = WeatherInfo(
-                                    city = weather.name,
-                                    temp = weather.main.temp,
-                                    humidity = weather.main.humidity,
-                                    recommendation = recommendation
-                                )
-                            } catch (e: Exception) { }
-                        }
-                    }
-                }
-            } catch (e: Exception) { }
-        }
-    }
-
-    private fun generateRecommendation(temp: Double, humidity: Int): String {
-        return when {
-            temp > 28 && humidity < 40 -> "High heat & low humidity: Your plants are drying out fast! Water more frequently."
-            temp < 15 -> "Cooler temperatures: Water needs are lower. Check soil before watering."
-            humidity > 70 -> "High humidity: Evaporation is slower. Be careful not to overwater."
-            else -> "Conditions are stable. Follow your regular watering schedule."
-        }
-    }
-
-    fun addPlant(
-        name: String,
-        nickname: String,
-        species: String,
-        location: String,
-        lightNeeds: String,
-        wateringFrequencyDays: Int,
-        careInstructions: String,
-        imageUrl: String? = null
-    ) {
-        viewModelScope.launch {
-            repository.addPlant(
-                PlantEntity(
-                    name = name,
-                    nickname = nickname,
-                    species = species,
-                    location = location,
-                    lightNeeds = lightNeeds,
-                    wateringFrequencyDays = wateringFrequencyDays,
-                    careInstructions = careInstructions,
-                    imageUrl = imageUrl
-                )
-            )
-        }
-    }
-
-    fun deletePlant(plant: PlantEntity) {
-        viewModelScope.launch {
-            repository.deletePlant(plant)
-        }
-    }
-
-    fun waterPlant(plant: PlantEntity) {
-        viewModelScope.launch {
-            repository.waterPlant(plant, wateredOn = "Today")
-        }
-    }
-}
 
 // =====================================================
 // UI STATE / NAVIGATION
