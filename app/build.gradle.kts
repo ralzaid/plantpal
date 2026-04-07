@@ -29,8 +29,8 @@ android {
                 localProperties.load(it)
             }
         }
-        val weatherKey = localProperties.getProperty("OPENWEATHER_API_KEY") ?: "0c6c8fa8799bbc7d6487795a88ecaa53"
-        val perenualKey = localProperties.getProperty("PERENUAL_API_KEY") ?: "sk-MUhX69cdc261f02b816050"
+        val weatherKey = localProperties.getProperty("OPENWEATHER_API_KEY") ?: ""
+        val perenualKey = localProperties.getProperty("PERENUAL_API_KEY") ?: ""
         
         buildConfigField("String", "OPENWEATHER_API_KEY", "\"$weatherKey\"")
         buildConfigField("String", "PERENUAL_API_KEY", "\"$perenualKey\"")
