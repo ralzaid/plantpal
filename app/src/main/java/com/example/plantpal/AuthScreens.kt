@@ -32,7 +32,7 @@ import com.example.plantpal.ui.theme.PlantPalTheme
 
 @Composable
 fun LoginScreen(
-    onLoggedIn: () -> Unit,
+    onLoggedIn: (String, String) -> Unit,
     onGoToSignUp: () -> Unit
 ) {
     var email by rememberSaveable { mutableStateOf("") }
@@ -70,7 +70,7 @@ fun LoginScreen(
                 errorMessage = when {
                     email.isBlank() || password.isBlank() -> "Enter your email and password."
                     else -> {
-                        onLoggedIn()
+                        onLoggedIn(email.trim(), password)
                         null
                     }
                 }

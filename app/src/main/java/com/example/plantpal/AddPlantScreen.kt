@@ -3,6 +3,7 @@ package com.example.plantpal
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -23,20 +24,21 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.example.plantpal.data.local.PerenualSearchResult
+import com.example.plantpal.data.local.PerenualService
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 
 @Composable
 fun AddPlantScreen(
-    onSave: (String, String, String, String, String, Int, String?) -> Unit
+    onSave: (String, String, String, Int, String) -> Unit
 ) {
     var name by remember { mutableStateOf("") }
-    var nickname by remember { mutableStateOf("") }
     var species by remember { mutableStateOf("") }
-    var location by remember { mutableStateOf("Indoor") }
-    var lightNeeds by remember { mutableStateOf("Bright indirect light") }
+    var plantType by remember { mutableStateOf("Indoor") }
     var wateringDays by remember { mutableStateOf("7") }
-    var imageUrl by remember { mutableStateOf<String?>(null) }
+    var careInstructions by remember { mutableStateOf("") }
+
     var searchResults by remember { mutableStateOf<List<PerenualSearchResult>>(emptyList()) }
     var searchStatus by remember { mutableStateOf<String?>(null) }
     var isSearching by remember { mutableStateOf(false) }
@@ -58,6 +60,7 @@ fun AddPlantScreen(
         }
 
         if (BuildConfig.PERENUAL_API_KEY.isBlank()) {
+            println("KEY DEBUG: ${BuildConfig.PERENUAL_API_KEY}")
             searchResults = emptyList()
             searchStatus = "Add PERENUAL_API_KEY to local.properties to enable plant lookup."
             isSearching = false
@@ -81,7 +84,8 @@ fun AddPlantScreen(
             }
         } catch (e: CancellationException) {
             throw e
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            e.printStackTrace()
             searchResults = emptyList()
             searchStatus = "Search failed. Check your API key and internet connection."
         } finally {
@@ -94,7 +98,7 @@ fun AddPlantScreen(
             .fillMaxSize()
             .padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 16.dp)
+        contentPadding = PaddingValues(vertical = 16.dp)
     ) {
         item {
             Text(
@@ -137,10 +141,9 @@ fun AddPlantScreen(
                     onUseResult = {
                         skipNextLookup = true
                         name = result.commonName ?: name
-                        species = result.scientificName.firstOrNull().orEmpty()
-                        imageUrl = result.defaultImage?.originalUrl ?: result.defaultImage?.thumbnail
-                        if (nickname.isBlank()) {
-                            nickname = result.commonName.orEmpty()
+                        species = result.scientificName?.firstOrNull().orEmpty()
+                        if (careInstructions.isBlank()) {
+                            careInstructions = "Follow plant-specific care guidance."
                         }
                         searchResults = emptyList()
                         searchStatus = null
@@ -148,15 +151,6 @@ fun AddPlantScreen(
                     }
                 )
             }
-        }
-
-        item {
-            OutlinedTextField(
-                value = nickname,
-                onValueChange = { nickname = it },
-                label = { Text("Nickname (optional)") },
-                modifier = Modifier.fillMaxWidth()
-            )
         }
 
         item {
@@ -170,18 +164,9 @@ fun AddPlantScreen(
 
         item {
             OutlinedTextField(
-                value = location,
-                onValueChange = { location = it },
-                label = { Text("Location") },
-                modifier = Modifier.fillMaxWidth()
-            )
-        }
-
-        item {
-            OutlinedTextField(
-                value = lightNeeds,
-                onValueChange = { lightNeeds = it },
-                label = { Text("Light needs") },
+                value = plantType,
+                onValueChange = { plantType = it },
+                label = { Text("Plant type (Indoor/Outdoor)") },
                 modifier = Modifier.fillMaxWidth()
             )
         }
@@ -196,17 +181,24 @@ fun AddPlantScreen(
         }
 
         item {
+            OutlinedTextField(
+                value = careInstructions,
+                onValueChange = { careInstructions = it },
+                label = { Text("Care instructions") },
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+
+        item {
             Button(
                 onClick = {
                     if (name.isNotBlank()) {
                         onSave(
                             name.trim(),
-                            nickname.trim(),
                             species.trim(),
-                            location.trim(),
-                            lightNeeds.trim(),
+                            plantType.trim(),
                             wateringDays.toIntOrNull() ?: 7,
-                            imageUrl
+                            careInstructions.trim()
                         )
                     }
                 },
@@ -227,7 +219,9 @@ private fun SearchResultCard(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onUseResult),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.secondaryContainer
+        )
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -237,12 +231,17 @@ private fun SearchResultCard(
                 text = result.commonName ?: "Unnamed plant",
                 style = MaterialTheme.typography.titleMedium
             )
-            val scientificName = result.scientificName.firstOrNull()
+
+            val scientificName = result.scientificName?.firstOrNull()
             if (!scientificName.isNullOrBlank()) {
-                Text(scientificName, style = MaterialTheme.typography.bodySmall)
+                Text(
+                    text = scientificName,
+                    style = MaterialTheme.typography.bodySmall
+                )
             }
+
             Text(
-                "Tap to autofill",
+                text = "Tap to autofill",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.primary
             )

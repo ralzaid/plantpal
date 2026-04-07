@@ -1,9 +1,18 @@
 package com.example.plantpal
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
@@ -12,6 +21,9 @@ import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -20,18 +32,28 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.plantpal.data.local.NotificationHelper
+import com.example.plantpal.data.workers.scheduleReminderWorker
+import com.example.plantpal.ui.state.PlantViewModel
 import com.example.plantpal.ui.theme.PlantPalTheme
 
 sealed class Screen {
@@ -47,9 +69,127 @@ sealed class Screen {
 fun PlantPalApp() {
     var isLoggedIn by remember { mutableStateOf(false) }
     var profile by remember { mutableStateOf(previewProfile) }
-    var plants by remember { mutableStateOf(previewPlants) }
+
+    val plantViewModel: PlantViewModel = viewModel()
+    val dbPlants by plantViewModel.plants.collectAsState()
+    val currentUserId by plantViewModel.currentUserId.collectAsState()
+    val hasSavedHomeLocation by plantViewModel.hasSavedHomeLocation.collectAsState()
+    val locationErrorMessage by plantViewModel.locationErrorMessage.collectAsState()
+
+    if (locationErrorMessage != null) {
+        AlertDialog(
+            onDismissRequest = { plantViewModel.clearLocationError() },
+            title = { Text("Location unavailable") },
+            text = { Text(locationErrorMessage!!) },
+            confirmButton = {
+                Button(onClick = { plantViewModel.clearLocationError() }) {
+                    Text("OK")
+                }
+            }
+        )
+    }
+
+    val context = LocalContext.current
+
+    var showLocationConsentDialog by rememberSaveable { mutableStateOf(false) }
+    var locationConsentChecked by rememberSaveable { mutableStateOf(false) }
+    var locationConsentHandledForSession by rememberSaveable { mutableStateOf(false) }
+
+    val locationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { result ->
+        val fineGranted = result[Manifest.permission.ACCESS_FINE_LOCATION] == true
+        val coarseGranted = result[Manifest.permission.ACCESS_COARSE_LOCATION] == true
+
+        if (fineGranted || coarseGranted) {
+            plantViewModel.captureAndSaveUserLocationIfMissing()
+        }
+
+        showLocationConsentDialog = false
+        locationConsentHandledForSession = true
+    }
+
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { }
+
+    LaunchedEffect(currentUserId, hasSavedHomeLocation) {
+        NotificationHelper.createChannel(context)
+
+        currentUserId?.let { userId ->
+            if (!hasSavedHomeLocation && !locationConsentHandledForSession) {
+                showLocationConsentDialog = true
+            }
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                val notificationsGranted =
+                    ContextCompat.checkSelfPermission(
+                        context,
+                        Manifest.permission.POST_NOTIFICATIONS
+                    ) == PackageManager.PERMISSION_GRANTED
+
+                if (!notificationsGranted) {
+                    notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                }
+            }
+
+            scheduleReminderWorker(context, userId)
+        }
+    }
+
     var currentScreen by remember {
         mutableStateOf<Screen>(if (isLoggedIn) Screen.Home else Screen.Login)
+    }
+
+    val plants = dbPlants.map {
+        UiPlant(
+            id = it.id,
+            name = it.name,
+            nickname = "",
+            species = it.species,
+            location = it.plantType,
+            lightNeeds = "",
+            wateringFrequencyDays = it.wateringFrequencyDays,
+            careInstructions = it.careInstructions,
+            lastWateredDate = it.lastWateredDate,
+            imageUrl = null
+        )
+    }
+
+    if (showLocationConsentDialog && !hasSavedHomeLocation) {
+        LocationConsentDialog(
+            checked = locationConsentChecked,
+            onCheckedChange = { locationConsentChecked = it },
+            onAgree = {
+                if (!locationConsentChecked) return@LocationConsentDialog
+
+                val fineLocationGranted =
+                    ContextCompat.checkSelfPermission(
+                        context,
+                        Manifest.permission.ACCESS_FINE_LOCATION
+                    ) == PackageManager.PERMISSION_GRANTED
+
+                val coarseLocationGranted =
+                    ContextCompat.checkSelfPermission(
+                        context,
+                        Manifest.permission.ACCESS_COARSE_LOCATION
+                    ) == PackageManager.PERMISSION_GRANTED
+
+                if (fineLocationGranted || coarseLocationGranted) {
+                    plantViewModel.captureAndSaveUserLocationIfMissing()
+                    showLocationConsentDialog = false
+                    locationConsentHandledForSession = true
+                } else {
+                    locationPermissionLauncher.launch(
+                        arrayOf(
+                            Manifest.permission.ACCESS_FINE_LOCATION,
+                            Manifest.permission.ACCESS_COARSE_LOCATION
+                        )
+                    )
+                }
+            },
+            onDismiss = { }
+        )
     }
 
     if (!isLoggedIn) {
@@ -59,14 +199,19 @@ fun PlantPalApp() {
                     profile = profile.copy(name = name, email = email)
                     isLoggedIn = true
                     currentScreen = Screen.Home
+                    locationConsentHandledForSession = false
+                    locationConsentChecked = false
                 },
                 onBackToLogin = { currentScreen = Screen.Login }
             )
 
             else -> LoginScreen(
-                onLoggedIn = {
+                onLoggedIn = { email, password ->
+                    plantViewModel.loginOrCreateLocalUser(email, password)
                     isLoggedIn = true
                     currentScreen = Screen.Home
+                    locationConsentHandledForSession = false
+                    locationConsentChecked = false
                 },
                 onGoToSignUp = { currentScreen = Screen.SignUp }
             )
@@ -80,8 +225,12 @@ fun PlantPalApp() {
         onNavigateAdd = { currentScreen = Screen.AddPlant },
         onNavigateProfile = { currentScreen = Screen.Profile },
         onLogout = {
+            plantViewModel.logout()
             isLoggedIn = false
             currentScreen = Screen.Login
+            showLocationConsentDialog = false
+            locationConsentChecked = false
+            locationConsentHandledForSession = false
         }
     ) { padding ->
         Box(
@@ -99,29 +248,29 @@ fun PlantPalApp() {
                 )
 
                 Screen.AddPlant -> AddPlantScreen(
-                    onSave = { name, nickname, species, location, light, wateringDays, imageUrl ->
-                        val nextId = (plants.maxOfOrNull { it.id } ?: 0) + 1
-                        plants = plants + UiPlant(
-                            id = nextId,
+                    onSave = { name, species, plantType, wateringDays, careInstructions ->
+                        plantViewModel.addPlant(
                             name = name,
-                            nickname = nickname,
                             species = species,
-                            location = location,
-                            lightNeeds = light,
+                            plantType = plantType,
                             wateringFrequencyDays = wateringDays,
-                            imageUrl = imageUrl
+                            careInstructions = careInstructions
                         )
                         currentScreen = Screen.Home
                     }
                 )
 
-                is Screen.PlantDetail -> PlantDetailScreen(
-                    plant = plants.firstOrNull { it.id == screen.plantId },
-                    onDelete = {
-                        plants = plants.filterNot { it.id == screen.plantId }
-                        currentScreen = Screen.Home
-                    }
-                )
+                is Screen.PlantDetail -> {
+                    val selectedPlant = dbPlants.firstOrNull { it.id == screen.plantId }
+
+                    PlantDetailScreen(
+                        plant = plants.firstOrNull { it.id == screen.plantId },
+                        onDelete = {
+                            selectedPlant?.let { plantViewModel.deletePlant(it) }
+                            currentScreen = Screen.Home
+                        }
+                    )
+                }
 
                 Screen.Profile -> ProfileScreen(
                     profile = profile,
@@ -133,8 +282,12 @@ fun PlantPalApp() {
                         )
                     },
                     onLogout = {
+                        plantViewModel.logout()
                         isLoggedIn = false
                         currentScreen = Screen.Login
+                        showLocationConsentDialog = false
+                        locationConsentChecked = false
+                        locationConsentHandledForSession = false
                     }
                 )
 
@@ -142,6 +295,60 @@ fun PlantPalApp() {
             }
         }
     }
+}
+
+@Composable
+private fun LocationConsentDialog(
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    onAgree: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text("Location consent")
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    "PlantPal uses your location once to save your home city and provide personalized plant care reminders based on the weather conditions there."
+                )
+                Text(
+                    "After this one-time setup, the saved location in your account will continue to be used for weather alerts until you manually change it later."
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Checkbox(
+                        checked = checked,
+                        onCheckedChange = onCheckedChange
+                    )
+                    Text(
+                        text = "I agree to let PlantPal use my location once for personalized weather-based care reminders.",
+                        modifier = Modifier.padding(top = 12.dp)
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = onAgree,
+                enabled = checked
+            ) {
+                Text("Continue")
+            }
+        },
+        dismissButton = {
+            OutlinedButton(
+                onClick = onDismiss,
+                enabled = false
+            ) {
+                Text("Required")
+            }
+        }
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -182,14 +389,20 @@ private fun PlantPalScaffold(
                 navigationIcon = {
                     if (currentScreen == Screen.AddPlant || currentScreen is Screen.PlantDetail) {
                         IconButton(onClick = onNavigateHome) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                            Icon(
+                                Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = "Back"
+                            )
                         }
                     }
                 },
                 actions = {
                     if (currentScreen == Screen.Profile) {
                         IconButton(onClick = onLogout) {
-                            Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = "Sign out")
+                            Icon(
+                                Icons.AutoMirrored.Filled.Logout,
+                                contentDescription = "Sign out"
+                            )
                         }
                     }
                 }
@@ -215,7 +428,9 @@ private fun PlantPalScaffold(
                                 unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         )
+
                         Spacer(modifier = Modifier.weight(1f, fill = true))
+
                         NavigationBarItem(
                             selected = currentScreen == Screen.Profile,
                             onClick = onNavigateProfile,
@@ -230,6 +445,7 @@ private fun PlantPalScaffold(
                             )
                         )
                     }
+
                     FloatingActionButton(
                         onClick = onNavigateAdd,
                         containerColor = MaterialTheme.colorScheme.primary,
@@ -254,10 +470,10 @@ fun PlantPalAppPreview() {
     PlantPalTheme {
         PlantPalScaffold(
             currentScreen = Screen.Home,
-            onNavigateHome = { },
-            onNavigateAdd = { },
-            onNavigateProfile = { },
-            onLogout = { }
+            onNavigateHome = {},
+            onNavigateAdd = {},
+            onNavigateProfile = {},
+            onLogout = {}
         ) { padding ->
             HomeDashboardContent(
                 modifier = Modifier
@@ -265,9 +481,9 @@ fun PlantPalAppPreview() {
                     .padding(padding),
                 profile = previewProfile,
                 plants = previewPlants,
-                onAddPlant = { },
-                onPlantClick = { },
-                onProfileClick = { }
+                onAddPlant = {},
+                onPlantClick = {},
+                onProfileClick = {}
             )
         }
     }
