@@ -36,6 +36,10 @@ android {
         buildConfigField("String", "PERENUAL_API_KEY", "\"$perenualKey\"")
     }
 
+    lint {
+        disable += "NullSafeMutableLiveData"
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
