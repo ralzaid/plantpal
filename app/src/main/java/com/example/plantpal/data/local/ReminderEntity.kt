@@ -6,7 +6,7 @@ import androidx.room.Index
 import androidx.room.PrimaryKey
 
 @Entity(
-    tableName = "watering_logs",
+    tableName = "reminders",
     foreignKeys = [
         ForeignKey(
             entity = PlantEntity::class,
@@ -17,8 +17,10 @@ import androidx.room.PrimaryKey
     ],
     indices = [Index("plantId")]
 )
-data class WateringLogEntity(
+data class ReminderEntity(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
     val plantId: Int,
-    val wateredOn: String
+    val reminderDate: String,
+    val reminderType: String,
+    val weatherContext: String? = null
 )

@@ -1,18 +1,29 @@
 package com.example.plantpal.data.local
 
 import androidx.room.Entity
+import androidx.room.ForeignKey
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
-@Entity(tableName = "plants")
+@Entity(
+    tableName = "plants",
+    foreignKeys = [
+        ForeignKey(
+            entity = UserEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["userId"],
+            onDelete = ForeignKey.CASCADE
+        )
+    ],
+    indices = [Index("userId")]
+)
 data class PlantEntity(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    val userId: Int,
     val name: String,
-    val nickname: String = "",
-    val species: String = "",
-    val location: String = "Indoor",
-    val lightNeeds: String = "Bright indirect light",
-    val wateringFrequencyDays: Int = 7,
+    val species: String,
+    val plantType: String,
     val careInstructions: String,
-    val lastWateredDate: String = "Not watered yet",
-    val imageUrl: String? = null
+    val wateringFrequencyDays: Int,
+    val lastWateredDate: String = ""
 )

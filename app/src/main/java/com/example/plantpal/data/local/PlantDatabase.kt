@@ -1,41 +1,50 @@
 package com.example.plantpal.data.local
 
-import androidx.room.Database
-import androidx.room.RoomDatabase
 import android.app.Application
+import androidx.room.Database
 import androidx.room.Room
-
+import androidx.room.RoomDatabase
 
 @Database(
-    entities = [PlantEntity::class, WateringLogEntity::class],
-    version = 2,
+    entities = [
+        UserEntity::class,
+        PlantEntity::class,
+        WateringLogEntity::class,
+        ConditionLogEntity::class,
+        HealthCheckEntity::class,
+        EnvironmentLogEntity::class,
+        ReminderEntity::class
+    ],
+    version = 3,
     exportSchema = false
 )
 abstract class PlantDatabase : RoomDatabase() {
+
+    abstract fun userDao(): UserDao
     abstract fun plantDao(): PlantDao
     abstract fun wateringLogDao(): WateringLogDao
- companion object {
-    @Volatile
-    private var INSTANCE: PlantDatabase? = null
+    abstract fun conditionLogDao(): ConditionLogDao
+    abstract fun healthCheckDao(): HealthCheckDao
+    abstract fun environmentLogDao(): EnvironmentLogDao
+    abstract fun reminderDao(): ReminderDao
 
-    val MIGRATION_1_2 = object : androidx.room.migration.Migration(1, 2) {
-        override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
-            db.execSQL("ALTER TABLE plants ADD COLUMN imageUrl TEXT")
+    companion object {
+        @Volatile
+        private var INSTANCE: PlantDatabase? = null
+
+        fun getDatabase(app: Application): PlantDatabase {
+            return INSTANCE ?: synchronized(this) {
+                val instance = Room.databaseBuilder(
+                    app,
+                    PlantDatabase::class.java,
+                    "plantpal_db"
+                )
+                    .fallbackToDestructiveMigration()
+                    .build()
+
+                INSTANCE = instance
+                instance
+            }
         }
     }
-
-    fun getDatabase(app: Application): PlantDatabase {
-        return INSTANCE ?: synchronized(this) {
-            val instance = Room.databaseBuilder(
-                app,
-                PlantDatabase::class.java,
-                "plantpal_db"
-            )
-                .addMigrations(MIGRATION_1_2)
-                .build()
-            INSTANCE = instance
-            instance
-        }
-    }
-}
 }

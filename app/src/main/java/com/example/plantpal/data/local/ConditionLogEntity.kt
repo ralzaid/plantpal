@@ -6,7 +6,7 @@ import androidx.room.Index
 import androidx.room.PrimaryKey
 
 @Entity(
-    tableName = "watering_logs",
+    tableName = "condition_logs",
     foreignKeys = [
         ForeignKey(
             entity = PlantEntity::class,
@@ -17,8 +17,9 @@ import androidx.room.PrimaryKey
     ],
     indices = [Index("plantId")]
 )
-data class WateringLogEntity(
+data class ConditionLogEntity(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
     val plantId: Int,
-    val wateredOn: String
+    val loggedOn: String,
+    val soilCondition: String
 )

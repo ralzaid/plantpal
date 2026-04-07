@@ -1,34 +1,82 @@
 package com.example.plantpal
 
-import com.example.plantpal.data.local.WateringLogEntity
-import com.example.plantpal.data.local.WateringLogDao
-import com.example.plantpal.data.local.PlantEntity
+import com.example.plantpal.data.local.ConditionLogDao
+import com.example.plantpal.data.local.ConditionLogEntity
+import com.example.plantpal.data.local.EnvironmentLogDao
+import com.example.plantpal.data.local.EnvironmentLogEntity
+import com.example.plantpal.data.local.HealthCheckDao
+import com.example.plantpal.data.local.HealthCheckEntity
 import com.example.plantpal.data.local.PlantDao
+import com.example.plantpal.data.local.PlantEntity
+import com.example.plantpal.data.local.ReminderDao
+import com.example.plantpal.data.local.ReminderEntity
+import com.example.plantpal.data.local.WateringLogDao
+import com.example.plantpal.data.local.WateringLogEntity
 import kotlinx.coroutines.flow.Flow
 
 class PlantRepository(
     private val plantDao: PlantDao,
-    private val wateringLogDao: WateringLogDao
+    private val wateringLogDao: WateringLogDao,
+    private val conditionLogDao: ConditionLogDao,
+    private val healthCheckDao: HealthCheckDao,
+    private val environmentLogDao: EnvironmentLogDao,
+    private val reminderDao: ReminderDao
 ) {
-    val allPlants: Flow<List<PlantEntity>> = plantDao.getAllPlants()
+    fun getPlantsForUser(userId: Int): Flow<List<PlantEntity>> =
+        plantDao.getPlantsForUser(userId)
 
-    fun getPlantById(id: Int): Flow<PlantEntity?> = plantDao.getPlantById(id)
+    fun getPlantById(id: Int): Flow<PlantEntity?> =
+        plantDao.getPlantById(id)
 
     fun getLogsForPlant(plantId: Int): Flow<List<WateringLogEntity>> =
         wateringLogDao.getLogsForPlant(plantId)
 
-    suspend fun addPlant(plant: PlantEntity) = plantDao.insertPlant(plant)
+    fun getConditionLogsForPlant(plantId: Int): Flow<List<ConditionLogEntity>> =
+        conditionLogDao.getConditionLogsForPlant(plantId)
 
-    suspend fun deletePlant(plant: PlantEntity) = plantDao.deletePlant(plant)
+    fun getHealthChecksForPlant(plantId: Int): Flow<List<HealthCheckEntity>> =
+        healthCheckDao.getHealthChecksForPlant(plantId)
+
+    fun getEnvironmentLogsForPlant(plantId: Int): Flow<List<EnvironmentLogEntity>> =
+        environmentLogDao.getEnvironmentLogsForPlant(plantId)
+
+    fun getRemindersForPlant(plantId: Int): Flow<List<ReminderEntity>> =
+        reminderDao.getRemindersForPlant(plantId)
+
+//    suspend fun addPlant(plant: PlantEntity) =
+//        plantDao.insertPlant(plant)
+
+    suspend fun addPlant(plant: PlantEntity) {
+        println("REPO_DEBUG: before insert")
+        plantDao.insertPlant(plant)
+        println("REPO_DEBUG: after insert")
+    }
+
+    suspend fun updatePlant(plant: PlantEntity) =
+        plantDao.updatePlant(plant)
+
+    suspend fun deletePlant(plant: PlantEntity) =
+        plantDao.deletePlant(plant)
 
     suspend fun waterPlant(plant: PlantEntity, wateredOn: String) {
         plantDao.updatePlant(plant.copy(lastWateredDate = wateredOn))
         wateringLogDao.insertLog(
             WateringLogEntity(
                 plantId = plant.id,
-                wateredOn = wateredOn,
-                note = "Watered"
+                wateredOn = wateredOn
             )
         )
     }
+
+    suspend fun addConditionLog(log: ConditionLogEntity) =
+        conditionLogDao.insertConditionLog(log)
+
+    suspend fun addHealthCheck(check: HealthCheckEntity) =
+        healthCheckDao.insertHealthCheck(check)
+
+    suspend fun addEnvironmentLog(log: EnvironmentLogEntity) =
+        environmentLogDao.insertEnvironmentLog(log)
+
+    suspend fun addReminder(reminder: ReminderEntity) =
+        reminderDao.insertReminder(reminder)
 }
