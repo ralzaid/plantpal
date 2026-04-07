@@ -2,6 +2,7 @@ package com.example.plantpal.data.local
 
 
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerialName
 import retrofit2.Retrofit
 import retrofit2.converter.kotlinx.serialization.asConverterFactory
 import kotlinx.serialization.json.Json
@@ -10,7 +11,10 @@ import retrofit2.http.GET
 
 @Serializable
 data class WeatherResponse(
+    val weather: List<WeatherCondition> = emptyList(),
     val main: MainData,
+    val wind: WindData? = null,
+    val rain: RainData? = null,
     val name: String
 )
 
@@ -18,6 +22,23 @@ data class WeatherResponse(
 data class MainData(
     val temp: Double,
     val humidity: Int
+)
+
+
+@Serializable
+data class WeatherCondition(
+    val main: String,
+    val description: String
+)
+
+@Serializable
+data class WindData(
+    val speed: Double
+)
+
+@Serializable
+data class RainData(
+    @SerialName("1h") val oneHour: Double? = null
 )
 
 interface OpenWeatherApi {

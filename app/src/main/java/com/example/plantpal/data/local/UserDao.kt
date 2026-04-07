@@ -15,4 +15,24 @@ interface UserDao {
 
     @Query("SELECT * FROM users WHERE id = :userId LIMIT 1")
     suspend fun getUserById(userId: Int): UserEntity?
+
+    @Query("""
+        UPDATE users
+        SET latitude = :latitude,
+            longitude = :longitude
+        WHERE id = :userId
+    """)
+    suspend fun updateUserLocation(
+        userId: Int,
+        latitude: Double,
+        longitude: Double
+    )
+
+    @Query("""
+        SELECT latitude IS NOT NULL AND longitude IS NOT NULL
+        FROM users
+        WHERE id = :userId
+        LIMIT 1
+    """)
+    suspend fun hasSavedLocation(userId: Int): Boolean?
 }

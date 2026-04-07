@@ -6,6 +6,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.plantpal.BuildConfig
 import com.example.plantpal.PlantRepository
+import com.example.plantpal.data.local.NotificationHelper
 import com.example.plantpal.data.local.PerenualDetails
 import com.example.plantpal.data.local.PerenualSearchResult
 import com.example.plantpal.data.local.PerenualService
@@ -25,6 +26,9 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class PlantViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -42,28 +46,16 @@ class PlantViewModel(application: Application) : AndroidViewModel(application) {
     private val fusedLocationClient =
         LocationServices.getFusedLocationProviderClient(application)
 
-    /*
-     * OLD APPROACH:
-     * private val currentUserId = 1
-     *
-     * That was only okay for a single hardcoded demo user.
-     * We are keeping the comment because real auth will eventually replace
-     * this temporary local-user session logic.
-     */
-
     private val _currentUserId = MutableStateFlow<Int?>(null)
     val currentUserId: StateFlow<Int?> = _currentUserId
 
     private val _currentUsername = MutableStateFlow<String?>(null)
     val currentUsername: StateFlow<String?> = _currentUsername
 
-    /*
-     * TEMP ONLY:
-     * We keep the password entered in the fake auth UI long enough to ensure
-     * a local Room user exists before saving plants.
-     * In the real version, this should be replaced by proper auth/session logic.
-     */
     private val _currentPassword = MutableStateFlow<String?>(null)
+
+    private val _hasSavedHomeLocation = MutableStateFlow(false)
+    val hasSavedHomeLocation: StateFlow<Boolean> = _hasSavedHomeLocation
 
     val plants: StateFlow<List<PlantEntity>> =
         _currentUserId
@@ -90,10 +82,6 @@ class PlantViewModel(application: Application) : AndroidViewModel(application) {
         val recommendation: String
     )
 
-    /*
-     * TEMP FAKE AUTH:
-     * Store the entered credentials locally and create/load a Room user row.
-     */
     fun loginOrCreateLocalUser(username: String, password: String) {
         val cleanedUsername = username.trim()
         if (cleanedUsername.isBlank()) return
@@ -103,8 +91,9 @@ class PlantViewModel(application: Application) : AndroidViewModel(application) {
 
         viewModelScope.launch {
             val userId = ensureCurrentUser()
-            println("LOGIN_DEBUG: entered username=$cleanedUsername")
-            println("LOGIN_DEBUG: resolved userId=$userId")
+            if (userId != null) {
+                refreshSavedLocationFlag(userId)
+            }
         }
     }
 
@@ -112,13 +101,9 @@ class PlantViewModel(application: Application) : AndroidViewModel(application) {
         _currentUserId.value = null
         _currentUsername.value = null
         _currentPassword.value = null
+        _hasSavedHomeLocation.value = false
     }
 
-    /*
-     * GUARANTEE:
-     * If the temp login exists, make sure there is a local Room user row
-     * and return its id.
-     */
     private suspend fun ensureCurrentUser(): Int? {
         val existingId = _currentUserId.value
         if (existingId != null) return existingId
@@ -136,7 +121,6 @@ class PlantViewModel(application: Application) : AndroidViewModel(application) {
             db.userDao().insertUser(
                 UserEntity(
                     username = username,
-                    // TEMP ONLY. Real version should use proper hashing/auth.
                     passwordHash = password,
                     experienceLevel = "",
                     numberOfPlants = 0,
@@ -147,7 +131,41 @@ class PlantViewModel(application: Application) : AndroidViewModel(application) {
         }
 
         _currentUserId.value = resolvedId
+        refreshSavedLocationFlag(resolvedId)
         return resolvedId
+    }
+
+    private suspend fun refreshSavedLocationFlag(userId: Int) {
+        _hasSavedHomeLocation.value = db.userDao().hasSavedLocation(userId) == true
+    }
+
+    @SuppressLint("MissingPermission")
+    fun captureAndSaveUserLocationIfMissing() {
+        viewModelScope.launch {
+            val userId = _currentUserId.value ?: return@launch
+            val alreadyHasLocation = db.userDao().hasSavedLocation(userId) == true
+
+            if (alreadyHasLocation) {
+                _hasSavedHomeLocation.value = true
+                return@launch
+            }
+
+            fusedLocationClient.getCurrentLocation(
+                Priority.PRIORITY_BALANCED_POWER_ACCURACY,
+                CancellationTokenSource().token
+            ).addOnSuccessListener { location ->
+                if (location != null) {
+                    viewModelScope.launch {
+                        db.userDao().updateUserLocation(
+                            userId = userId,
+                            latitude = location.latitude,
+                            longitude = location.longitude
+                        )
+                        _hasSavedHomeLocation.value = true
+                    }
+                }
+            }
+        }
     }
 
     fun searchPerenual(query: String) {
@@ -250,16 +268,8 @@ class PlantViewModel(application: Application) : AndroidViewModel(application) {
         wateringFrequencyDays: Int,
         careInstructions: String
     ) {
-        println("ADD_DEBUG: addPlant called")
-
         viewModelScope.launch {
-            val userId = ensureCurrentUser()
-            println("ADD_DEBUG: resolved currentUserId=$userId")
-
-            if (userId == null) {
-                println("ADD_DEBUG: no user available, insert aborted")
-                return@launch
-            }
+            val userId = ensureCurrentUser() ?: return@launch
 
             repository.addPlant(
                 PlantEntity(
@@ -273,7 +283,11 @@ class PlantViewModel(application: Application) : AndroidViewModel(application) {
                 )
             )
 
-            println("ADD_DEBUG: repository.addPlant finished")
+            NotificationHelper.sendNotification(
+                getApplication(),
+                "Demo weather alert 🌬️",
+                "High wind warning. Keep plants indoor to avoid damage."
+            )
         }
     }
 
@@ -285,7 +299,8 @@ class PlantViewModel(application: Application) : AndroidViewModel(application) {
 
     fun waterPlant(plant: PlantEntity) {
         viewModelScope.launch {
-            repository.waterPlant(plant, wateredOn = "Today")
+            val today = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
+            repository.waterPlant(plant, wateredOn = today)
         }
     }
 }

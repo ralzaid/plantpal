@@ -16,4 +16,5 @@ data class UserEntity(
     val numberOfPlants: Int = 0,
     val latitude: Double? = null,
     val longitude: Double? = null
+
 )
