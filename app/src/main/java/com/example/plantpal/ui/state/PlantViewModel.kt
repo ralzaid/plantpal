@@ -2,6 +2,7 @@ package com.example.plantpal.ui.state
 
 import android.annotation.SuppressLint
 import android.app.Application
+import android.location.Location
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.plantpal.BuildConfig
@@ -57,6 +58,9 @@ class PlantViewModel(application: Application) : AndroidViewModel(application) {
     private val _hasSavedHomeLocation = MutableStateFlow(false)
     val hasSavedHomeLocation: StateFlow<Boolean> = _hasSavedHomeLocation
 
+    private val _locationErrorMessage = MutableStateFlow<String?>(null)
+    val locationErrorMessage: StateFlow<String?> = _locationErrorMessage
+
     val plants: StateFlow<List<PlantEntity>> =
         _currentUserId
             .flatMapLatest { userId ->
@@ -102,6 +106,11 @@ class PlantViewModel(application: Application) : AndroidViewModel(application) {
         _currentUsername.value = null
         _currentPassword.value = null
         _hasSavedHomeLocation.value = false
+        _locationErrorMessage.value = null
+    }
+
+    fun clearLocationError() {
+        _locationErrorMessage.value = null
     }
 
     private suspend fun ensureCurrentUser(): Int? {
@@ -150,21 +159,35 @@ class PlantViewModel(application: Application) : AndroidViewModel(application) {
                 return@launch
             }
 
+            _locationErrorMessage.value = null
+
             fusedLocationClient.getCurrentLocation(
-                Priority.PRIORITY_BALANCED_POWER_ACCURACY,
+                Priority.PRIORITY_HIGH_ACCURACY,
                 CancellationTokenSource().token
             ).addOnSuccessListener { location ->
                 if (location != null) {
-                    viewModelScope.launch {
-                        db.userDao().updateUserLocation(
-                            userId = userId,
-                            latitude = location.latitude,
-                            longitude = location.longitude
-                        )
-                        _hasSavedHomeLocation.value = true
-                    }
+                    saveUserLocation(userId, location)
+                } else {
+                    _locationErrorMessage.value =
+                        "We couldn’t access your current location. Please try again later."
                 }
+            }.addOnFailureListener { error ->
+                error.printStackTrace()
+                _locationErrorMessage.value =
+                    "We couldn’t access your current location. Please try again later."
             }
+        }
+    }
+
+    private fun saveUserLocation(userId: Int, location: Location) {
+        viewModelScope.launch {
+            db.userDao().updateUserLocation(
+                userId = userId,
+                latitude = location.latitude,
+                longitude = location.longitude
+            )
+            _hasSavedHomeLocation.value = true
+            _locationErrorMessage.value = null
         }
     }
 
@@ -206,42 +229,34 @@ class PlantViewModel(application: Application) : AndroidViewModel(application) {
     fun getLogs(plantId: Int): Flow<List<WateringLogEntity>> =
         repository.getLogsForPlant(plantId)
 
-    @SuppressLint("MissingPermission")
-    fun refreshWeather(apiKey: String) {
+    fun refreshWeatherFromSavedHomeLocation(apiKey: String) {
         if (apiKey.isBlank()) return
 
         viewModelScope.launch {
+            val userId = _currentUserId.value ?: return@launch
+            val user = db.userDao().getUserById(userId) ?: return@launch
+
+            val lat = user.latitude ?: return@launch
+            val lon = user.longitude ?: return@launch
+
             try {
-                fusedLocationClient.getCurrentLocation(
-                    Priority.PRIORITY_BALANCED_POWER_ACCURACY,
-                    CancellationTokenSource().token
-                ).addOnSuccessListener { location ->
-                    if (location != null) {
-                        viewModelScope.launch {
-                            try {
-                                val weather = WeatherService.api.getCurrentWeather(
-                                    location.latitude,
-                                    location.longitude,
-                                    apiKey
-                                )
+                val weather = WeatherService.api.getCurrentWeather(
+                    lat = lat,
+                    lon = lon,
+                    apiKey = apiKey
+                )
 
-                                val recommendation = generateRecommendation(
-                                    weather.main.temp,
-                                    weather.main.humidity
-                                )
+                val recommendation = generateRecommendation(
+                    weather.main.temp,
+                    weather.main.humidity
+                )
 
-                                _weatherState.value = WeatherInfo(
-                                    city = weather.name,
-                                    temp = weather.main.temp,
-                                    humidity = weather.main.humidity,
-                                    recommendation = recommendation
-                                )
-                            } catch (e: Exception) {
-                                e.printStackTrace()
-                            }
-                        }
-                    }
-                }
+                _weatherState.value = WeatherInfo(
+                    city = weather.name,
+                    temp = weather.main.temp,
+                    humidity = weather.main.humidity,
+                    recommendation = recommendation
+                )
             } catch (e: Exception) {
                 e.printStackTrace()
             }
@@ -286,7 +301,7 @@ class PlantViewModel(application: Application) : AndroidViewModel(application) {
             NotificationHelper.sendNotification(
                 getApplication(),
                 "Demo weather alert 🌬️",
-                "High wind warning. Keep plants indoor to avoid damage."
+                "High wind warning. Keep plants indoors to avoid damage. "
             )
         }
     }

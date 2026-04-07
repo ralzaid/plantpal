@@ -74,6 +74,20 @@ fun PlantPalApp() {
     val dbPlants by plantViewModel.plants.collectAsState()
     val currentUserId by plantViewModel.currentUserId.collectAsState()
     val hasSavedHomeLocation by plantViewModel.hasSavedHomeLocation.collectAsState()
+    val locationErrorMessage by plantViewModel.locationErrorMessage.collectAsState()
+
+    if (locationErrorMessage != null) {
+        AlertDialog(
+            onDismissRequest = { plantViewModel.clearLocationError() },
+            title = { Text("Location unavailable") },
+            text = { Text(locationErrorMessage!!) },
+            confirmButton = {
+                Button(onClick = { plantViewModel.clearLocationError() }) {
+                    Text("OK")
+                }
+            }
+        )
+    }
 
     val context = LocalContext.current
 
@@ -86,9 +100,11 @@ fun PlantPalApp() {
     ) { result ->
         val fineGranted = result[Manifest.permission.ACCESS_FINE_LOCATION] == true
         val coarseGranted = result[Manifest.permission.ACCESS_COARSE_LOCATION] == true
+
         if (fineGranted || coarseGranted) {
             plantViewModel.captureAndSaveUserLocationIfMissing()
         }
+
         showLocationConsentDialog = false
         locationConsentHandledForSession = true
     }
@@ -183,6 +199,8 @@ fun PlantPalApp() {
                     profile = profile.copy(name = name, email = email)
                     isLoggedIn = true
                     currentScreen = Screen.Home
+                    locationConsentHandledForSession = false
+                    locationConsentChecked = false
                 },
                 onBackToLogin = { currentScreen = Screen.Login }
             )
@@ -297,7 +315,7 @@ private fun LocationConsentDialog(
                     "PlantPal uses your location once to save your home city and provide personalized plant care reminders based on the weather conditions there."
                 )
                 Text(
-                    "This saved city will continue to be used for reminders even if you travel somewhere else."
+                    "After this one-time setup, the saved location in your account will continue to be used for weather alerts until you manually change it later."
                 )
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -308,7 +326,7 @@ private fun LocationConsentDialog(
                         onCheckedChange = onCheckedChange
                     )
                     Text(
-                        text = "I agree to let PlantPal use my location for personalized weather-based care reminders.",
+                        text = "I agree to let PlantPal use my location once for personalized weather-based care reminders.",
                         modifier = Modifier.padding(top = 12.dp)
                     )
                 }
