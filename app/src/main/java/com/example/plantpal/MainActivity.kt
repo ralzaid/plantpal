@@ -13,7 +13,7 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             PlantPalTheme {
-                PlantPalApp()
+                PlantPalApp() 
             }
         }
     }
