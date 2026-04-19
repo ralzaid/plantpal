@@ -1,4 +1,4 @@
-package com.example.plantpal
+package com.example.plantpal.data.repos
 
 import com.example.plantpal.data.local.ConditionLogDao
 import com.example.plantpal.data.local.ConditionLogEntity
@@ -8,6 +8,8 @@ import com.example.plantpal.data.local.HealthCheckDao
 import com.example.plantpal.data.local.HealthCheckEntity
 import com.example.plantpal.data.local.PlantDao
 import com.example.plantpal.data.local.PlantEntity
+import com.example.plantpal.data.local.PlantObservationDao
+import com.example.plantpal.data.local.PlantObservationEntity
 import com.example.plantpal.data.local.ReminderDao
 import com.example.plantpal.data.local.ReminderEntity
 import com.example.plantpal.data.local.WateringLogDao
@@ -20,7 +22,8 @@ class PlantRepository(
     private val conditionLogDao: ConditionLogDao,
     private val healthCheckDao: HealthCheckDao,
     private val environmentLogDao: EnvironmentLogDao,
-    private val reminderDao: ReminderDao
+    private val reminderDao: ReminderDao,
+    private val plantObservationDao: PlantObservationDao
 ) {
     fun getPlantsForUser(userId: Int): Flow<List<PlantEntity>> =
         plantDao.getPlantsForUser(userId)
@@ -43,13 +46,11 @@ class PlantRepository(
     fun getRemindersForPlant(plantId: Int): Flow<List<ReminderEntity>> =
         reminderDao.getRemindersForPlant(plantId)
 
-//    suspend fun addPlant(plant: PlantEntity) =
-//        plantDao.insertPlant(plant)
+    fun getObservationsForPlant(plantId: Int): Flow<List<PlantObservationEntity>> =
+        plantObservationDao.getObservationsForPlant(plantId)
 
     suspend fun addPlant(plant: PlantEntity) {
-        println("REPO_DEBUG: before insert")
         plantDao.insertPlant(plant)
-        println("REPO_DEBUG: after insert")
     }
 
     suspend fun updatePlant(plant: PlantEntity) =
@@ -79,4 +80,7 @@ class PlantRepository(
 
     suspend fun addReminder(reminder: ReminderEntity) =
         reminderDao.insertReminder(reminder)
+
+    suspend fun addObservation(observation: PlantObservationEntity) =
+        plantObservationDao.insertObservation(observation)
 }

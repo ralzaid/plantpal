@@ -1,7 +1,8 @@
-package com.example.plantpal
+package com.example.plantpal.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -19,6 +20,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.example.plantpal.previewPlants
+import com.example.plantpal.previewProfile
 import com.example.plantpal.ui.theme.PlantPalTheme
 
 @Composable
@@ -27,7 +30,8 @@ fun HomeDashboardScreen(
     plants: List<UiPlant>,
     onAddPlant: () -> Unit,
     onPlantClick: (Int) -> Unit,
-    onProfileClick: () -> Unit
+    onProfileClick: () -> Unit,
+    onPlantQuizClick: (Int) -> Unit
 ) {
     HomeDashboardContent(
         modifier = Modifier.fillMaxSize(),
@@ -35,7 +39,8 @@ fun HomeDashboardScreen(
         plants = plants,
         onAddPlant = onAddPlant,
         onPlantClick = onPlantClick,
-        onProfileClick = onProfileClick
+        onProfileClick = onProfileClick,
+        onPlantQuizClick = onPlantQuizClick
     )
 }
 
@@ -46,14 +51,15 @@ fun HomeDashboardContent(
     plants: List<UiPlant>,
     onAddPlant: () -> Unit,
     onPlantClick: (Int) -> Unit,
-    onProfileClick: () -> Unit
+    onProfileClick: () -> Unit,
+    onPlantQuizClick: (Int) -> Unit
 ) {
     val displayName = profile.name.ifBlank { "Grower" }
 
     LazyColumn(
         modifier = modifier.padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 16.dp)
+        contentPadding = PaddingValues(vertical = 16.dp)
     ) {
         item {
             Text("Collection", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
@@ -83,7 +89,8 @@ fun HomeDashboardContent(
             items(plants) { plant ->
                 PlantSummaryCard(
                     plant = plant,
-                    onViewDetails = { onPlantClick(plant.id) }
+                    onViewDetails = { onPlantClick(plant.id) },
+                    onStartQuiz = { onPlantQuizClick(plant.id) }
                 )
             }
         }
@@ -93,7 +100,8 @@ fun HomeDashboardContent(
 @Composable
 fun PlantSummaryCard(
     plant: UiPlant,
-    onViewDetails: () -> Unit
+    onViewDetails: () -> Unit,
+    onStartQuiz: () -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -116,8 +124,18 @@ fun PlantSummaryCard(
             Text("Last watered: ${formatStoredDate(plant.lastWateredDate)}", color = MaterialTheme.colorScheme.onSurfaceVariant)
 
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedButton(onClick = onViewDetails, modifier = Modifier.weight(1f)) {
+                OutlinedButton(
+                    onClick = onViewDetails,
+                    modifier = Modifier.weight(1f)
+                ) {
                     Text("View Details")
+                }
+
+                OutlinedButton(
+                    onClick = onStartQuiz,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("Start Quiz")
                 }
             }
         }
@@ -133,7 +151,10 @@ fun HomeDashboardPreview() {
             plants = previewPlants,
             onAddPlant = { },
             onPlantClick = { },
-            onProfileClick = { }
+            onProfileClick = { },
+            onPlantQuizClick = { }
+
+
         )
     }
 }
