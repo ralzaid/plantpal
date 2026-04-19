@@ -4,6 +4,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    id("kotlin-parcelize")
     id("com.google.devtools.ksp") version "2.1.20-1.0.32"
     kotlin("plugin.serialization") version "2.1.20"
 }
@@ -25,13 +26,13 @@ android {
         val localProperties = Properties()
         val localPropertiesFile = rootProject.file("local.properties")
         if (localPropertiesFile.exists()) {
-            localPropertiesFile.inputStream().use { 
+            localPropertiesFile.inputStream().use {
                 localProperties.load(it)
             }
         }
         val weatherKey = localProperties.getProperty("OPENWEATHER_API_KEY") ?: "0c6c8fa8799b-bc7d6487795a88ecaa53"
         val perenualKey = localProperties.getProperty("PERENUAL_API_KEY") ?: ""
-        
+
         buildConfigField("String", "OPENWEATHER_API_KEY", "\"$weatherKey\"")
         buildConfigField("String", "PERENUAL_API_KEY", "\"$perenualKey\"")
     }
@@ -76,7 +77,7 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
     implementation("androidx.compose.material:material-icons-extended")
-    
+
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.2")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.2")
 

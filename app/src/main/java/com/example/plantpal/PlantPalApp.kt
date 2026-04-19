@@ -1,6 +1,7 @@
 package com.example.plantpal
 
 import android.Manifest
+import android.os.Parcelable
 import android.content.pm.PackageManager
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -65,28 +66,45 @@ import com.example.plantpal.ui.screens.SignUpScreen
 import com.example.plantpal.ui.state.PlantViewModel
 import com.example.plantpal.ui.screens.UiPlant
 import com.example.plantpal.ui.theme.PlantPalTheme
+import kotlinx.parcelize.Parcelize
 
-sealed class Screen {
+sealed class Screen : Parcelable {
+    @Parcelize
     data object Login : Screen()
+
+    @Parcelize
     data object SignUp : Screen()
+
+    @Parcelize
     data object Home : Screen()
+
+    @Parcelize
     data object AddPlant : Screen()
+
+    @Parcelize
     data object QuizPicker : Screen()
+
+    @Parcelize
     data class Quiz(val plantId: Int) : Screen()
+
+    @Parcelize
     data class PlantDetail(val plantId: Int) : Screen()
+
+    @Parcelize
     data object Profile : Screen()
 }
 
 @Composable
 fun PlantPalApp() {
-    var isLoggedIn by remember { mutableStateOf(false) }
     var profile by remember { mutableStateOf(previewProfile) }
 
     val plantViewModel: PlantViewModel = viewModel()
     val dbPlants by plantViewModel.plants.collectAsState()
     val currentUserId by plantViewModel.currentUserId.collectAsState()
+    val isSessionReady by plantViewModel.isSessionReady.collectAsState()
     val hasSavedHomeLocation by plantViewModel.hasSavedHomeLocation.collectAsState()
     val locationErrorMessage by plantViewModel.locationErrorMessage.collectAsState()
+    val isLoggedIn = currentUserId != null
 
     if (locationErrorMessage != null) {
         AlertDialog(
@@ -149,8 +167,21 @@ fun PlantPalApp() {
         }
     }
 
-    var currentScreen by remember {
-        mutableStateOf<Screen>(if (isLoggedIn) Screen.Home else Screen.Login)
+    var currentScreen by rememberSaveable { mutableStateOf<Screen>(Screen.Login) }
+
+    LaunchedEffect(isSessionReady, isLoggedIn) {
+        if (!isSessionReady) return@LaunchedEffect
+
+        if (isLoggedIn && (currentScreen == Screen.Login || currentScreen == Screen.SignUp)) {
+            currentScreen = Screen.Home
+        } else if (!isLoggedIn && currentScreen !is Screen.Login && currentScreen !is Screen.SignUp) {
+            currentScreen = Screen.Login
+        }
+    }
+
+    if (!isSessionReady) {
+        Box(modifier = Modifier.fillMaxSize())
+        return
     }
 
     val plants = dbPlants.map {
@@ -232,7 +263,6 @@ fun PlantPalApp() {
                         username = email,
                         password = password,
                         onSuccess = {
-                            isLoggedIn = true
                             currentScreen = Screen.Home
                             locationConsentHandledForSession = false
                             locationConsentChecked = false
@@ -255,7 +285,6 @@ fun PlantPalApp() {
         onNavigateProfile = { currentScreen = Screen.Profile },
         onLogout = {
             plantViewModel.logout()
-            isLoggedIn = false
             currentScreen = Screen.Login
             showLocationConsentDialog = false
             locationConsentChecked = false
@@ -347,7 +376,6 @@ fun PlantPalApp() {
                     },
                     onLogout = {
                         plantViewModel.logout()
-                        isLoggedIn = false
                         currentScreen = Screen.Login
                         showLocationConsentDialog = false
                         locationConsentChecked = false

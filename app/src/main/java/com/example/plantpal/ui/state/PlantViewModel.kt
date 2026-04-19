@@ -2,6 +2,7 @@ package com.example.plantpal.ui.state
 
 import android.annotation.SuppressLint
 import android.app.Application
+import android.content.Context
 import android.location.Location
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -33,6 +34,11 @@ import java.util.Locale
 
 class PlantViewModel(application: Application) : AndroidViewModel(application) {
 
+    private val sessionPrefs = application.getSharedPreferences(
+        SESSION_PREFS,
+        Context.MODE_PRIVATE
+    )
+
     private val db = PlantDatabase.getDatabase(application)
 
     private val repository = PlantRepository(
@@ -55,6 +61,9 @@ class PlantViewModel(application: Application) : AndroidViewModel(application) {
     val currentUsername: StateFlow<String?> = _currentUsername
 
     private val _currentPassword = MutableStateFlow<String?>(null)
+
+    private val _isSessionReady = MutableStateFlow(false)
+    val isSessionReady: StateFlow<Boolean> = _isSessionReady
 
     private val _hasSavedHomeLocation = MutableStateFlow(false)
     val hasSavedHomeLocation: StateFlow<Boolean> = _hasSavedHomeLocation
@@ -90,6 +99,10 @@ class PlantViewModel(application: Application) : AndroidViewModel(application) {
         val recommendation: String
     )
 
+    init {
+        restoreSession()
+    }
+
     fun clearAuthError() {
         _authErrorMessage.value = null
     }
@@ -121,6 +134,7 @@ class PlantViewModel(application: Application) : AndroidViewModel(application) {
                     _currentUsername.value = cleanedUsername
                     _currentPassword.value = password
                     _currentUserId.value = existingUser.id
+                    persistSession(existingUser.id, cleanedUsername)
                     _authErrorMessage.value = null
                     refreshSavedLocationFlag(existingUser.id)
                     onSuccess()
@@ -172,6 +186,49 @@ class PlantViewModel(application: Application) : AndroidViewModel(application) {
         _hasSavedHomeLocation.value = false
         _locationErrorMessage.value = null
         _authErrorMessage.value = null
+        clearPersistedSession()
+    }
+
+    private fun restoreSession() {
+        viewModelScope.launch {
+            try {
+                val savedUserId = sessionPrefs.getInt(SESSION_USER_ID, -1)
+                val savedUsername = sessionPrefs.getString(SESSION_USERNAME, null)
+
+                if (savedUserId > 0 && !savedUsername.isNullOrBlank()) {
+                    val savedUser = db.userDao().getUserById(savedUserId)
+                    if (savedUser != null && savedUser.username == savedUsername) {
+                        _currentUserId.value = savedUser.id
+                        _currentUsername.value = savedUser.username
+                        _currentPassword.value = null
+                        _authErrorMessage.value = null
+                        refreshSavedLocationFlag(savedUser.id)
+                    } else {
+                        clearPersistedSession()
+                    }
+                }
+            } catch (e: ClassCastException) {
+                e.printStackTrace()
+                // Handle legacy/corrupted preference values from previous app versions.
+                clearPersistedSession()
+            } catch (e: Exception) {
+                e.printStackTrace()
+                clearPersistedSession()
+            } finally {
+                _isSessionReady.value = true
+            }
+        }
+    }
+
+    private fun persistSession(userId: Int, username: String) {
+        sessionPrefs.edit()
+            .putInt(SESSION_USER_ID, userId)
+            .putString(SESSION_USERNAME, username)
+            .apply()
+    }
+
+    private fun clearPersistedSession() {
+        sessionPrefs.edit().clear().apply()
     }
 
     fun clearLocationError() {
@@ -393,5 +450,11 @@ class PlantViewModel(application: Application) : AndroidViewModel(application) {
             val today = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
             repository.waterPlant(plant, wateredOn = today)
         }
+    }
+
+    private companion object {
+        const val SESSION_PREFS = "plantpal_session"
+        const val SESSION_USER_ID = "session_user_id"
+        const val SESSION_USERNAME = "session_username"
     }
 }
