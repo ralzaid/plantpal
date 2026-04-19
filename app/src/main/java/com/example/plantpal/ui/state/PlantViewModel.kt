@@ -264,11 +264,21 @@ class PlantViewModel(application: Application) : AndroidViewModel(application) {
 
         viewModelScope.launch {
             try {
+                val apiKey = BuildConfig.PERENUAL_API_KEY.trim()
+                if (apiKey.isBlank()) {
+                    _searchResults.value = emptyList()
+                    return@launch
+                }
+
                 val response = PerenualService.api.searchPlants(
-                    apiKey = BuildConfig.PERENUAL_API_KEY,
+                    apiKey = apiKey,
                     query = query
                 )
-                _searchResults.value = response.data
+                _searchResults.value = if (response.isSuccessful) {
+                    response.body()?.data.orEmpty()
+                } else {
+                    emptyList()
+                }
             } catch (e: Exception) {
                 e.printStackTrace()
                 _searchResults.value = emptyList()
@@ -278,10 +288,11 @@ class PlantViewModel(application: Application) : AndroidViewModel(application) {
 
     suspend fun getPerenualDetails(id: Int): PerenualDetails? {
         return try {
-            PerenualService.api.getPlantDetails(
+            val response = PerenualService.api.getPlantDetails(
                 id,
-                BuildConfig.PERENUAL_API_KEY
+                BuildConfig.PERENUAL_API_KEY.trim()
             )
+            if (response.isSuccessful) response.body() else null
         } catch (e: Exception) {
             e.printStackTrace()
             null

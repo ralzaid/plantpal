@@ -8,6 +8,7 @@ import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.kotlinx.serialization.asConverterFactory
+import retrofit2.Response
 import retrofit2.http.GET
 import retrofit2.http.Path
 import retrofit2.http.Query
@@ -46,13 +47,13 @@ interface PerenualApi {
     suspend fun searchPlants(
         @Query("key") apiKey: String,
         @Query("q") query: String
-    ): PerenualSearchResponse
+    ): Response<PerenualSearchResponse>
 
     @GET("species/details/{id}")
     suspend fun getPlantDetails(
         @Path("id") id: Int,
         @Query("key") apiKey: String
-    ): PerenualDetails
+    ): Response<PerenualDetails>
 }
 
 object PerenualService {

@@ -29,6 +29,11 @@ import com.example.plantpal.data.local.PerenualSearchResult
 import com.example.plantpal.data.local.PerenualService
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
+import java.io.IOException
+import java.net.ConnectException
+import java.net.SocketTimeoutException
+import java.net.UnknownHostException
+import javax.net.ssl.SSLException
 
 @Composable
 fun AddPlantScreen(
@@ -60,8 +65,8 @@ fun AddPlantScreen(
             return@LaunchedEffect
         }
 
-        if (BuildConfig.PERENUAL_API_KEY.isBlank()) {
-            println("KEY DEBUG: ${BuildConfig.PERENUAL_API_KEY}")
+        val apiKey = BuildConfig.PERENUAL_API_KEY.trim()
+        if (apiKey.isBlank()) {
             searchResults = emptyList()
             searchStatus = "Add PERENUAL_API_KEY to local.properties to enable plant lookup."
             isSearching = false
@@ -74,21 +79,40 @@ fun AddPlantScreen(
 
         try {
             val response = PerenualService.api.searchPlants(
-                apiKey = BuildConfig.PERENUAL_API_KEY,
+                apiKey = apiKey,
                 query = query
             )
-            searchResults = response.data.take(5)
-            searchStatus = if (searchResults.isEmpty()) {
-                "No matches found."
+            if (response.isSuccessful) {
+                searchResults = response.body()?.data.orEmpty().take(5)
+                searchStatus = if (searchResults.isEmpty()) {
+                    "No matches found for '$query'."
+                } else {
+                    "Tap a result to autofill the form."
+                }
             } else {
-                "Tap a result to autofill the form."
+                searchResults = emptyList()
+                searchStatus = "Perenual request failed (${response.code()}). Verify API key and quota."
             }
         } catch (e: CancellationException) {
             throw e
+        } catch (e: IOException) {
+            e.printStackTrace()
+            searchResults = emptyList()
+            val ioReason = when (e) {
+                is UnknownHostException -> {
+                    val hostHint = e.localizedMessage ?: "unknown host"
+                    "DNS lookup failed: $hostHint"
+                }
+                is SocketTimeoutException -> "Connection timed out contacting Perenual."
+                is SSLException -> "TLS/SSL handshake failed. Check device date/time and certificates."
+                is ConnectException -> "Could not connect to Perenual server."
+                else -> e.localizedMessage ?: "unknown network error"
+            }
+            searchStatus = "Network error: $ioReason"
         } catch (e: Exception) {
             e.printStackTrace()
             searchResults = emptyList()
-            searchStatus = "Search failed. Check your API key and internet connection."
+            searchStatus = "Search failed: ${e.localizedMessage ?: "unknown error"}"
         } finally {
             isSearching = false
         }
