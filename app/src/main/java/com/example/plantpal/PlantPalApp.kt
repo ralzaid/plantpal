@@ -53,7 +53,17 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.plantpal.data.local.NotificationHelper
 import com.example.plantpal.data.workers.scheduleReminderWorker
+import com.example.plantpal.quiz.PlantQuizPickerScreen
+import com.example.plantpal.quiz.PlantQuizScreen
+import com.example.plantpal.ui.screens.AddPlantScreen
+import com.example.plantpal.ui.screens.HomeDashboardContent
+import com.example.plantpal.ui.screens.HomeDashboardScreen
+import com.example.plantpal.ui.screens.LoginScreen
+import com.example.plantpal.ui.screens.PlantDetailScreen
+import com.example.plantpal.ui.screens.ProfileScreen
+import com.example.plantpal.ui.screens.SignUpScreen
 import com.example.plantpal.ui.state.PlantViewModel
+import com.example.plantpal.ui.screens.UiPlant
 import com.example.plantpal.ui.theme.PlantPalTheme
 
 sealed class Screen {
@@ -61,6 +71,8 @@ sealed class Screen {
     data object SignUp : Screen()
     data object Home : Screen()
     data object AddPlant : Screen()
+    data object QuizPicker : Screen()
+    data class Quiz(val plantId: Int) : Screen()
     data class PlantDetail(val plantId: Int) : Screen()
     data object Profile : Screen()
 }
@@ -193,27 +205,44 @@ fun PlantPalApp() {
     }
 
     if (!isLoggedIn) {
+        val authErrorMessage by plantViewModel.authErrorMessage.collectAsState()
+
         when (currentScreen) {
             Screen.SignUp -> SignUpScreen(
-                onSignedUp = { name, email ->
-                    profile = profile.copy(name = name, email = email)
-                    isLoggedIn = true
-                    currentScreen = Screen.Home
-                    locationConsentHandledForSession = false
-                    locationConsentChecked = false
+                onSignedUp = { name, email, password ->
+                    plantViewModel.registerLocalUser(
+                        username = email,
+                        password = password,
+                        onSuccess = {
+                            profile = profile.copy(name = name, email = email)
+                            currentScreen = Screen.Login
+                        },
+                        onError = { message ->
+                            // You can later surface this on the sign-up page too if you want.
+                        }
+                    )
                 },
                 onBackToLogin = { currentScreen = Screen.Login }
             )
 
             else -> LoginScreen(
+                authErrorMessage = authErrorMessage,
                 onLoggedIn = { email, password ->
-                    plantViewModel.loginOrCreateLocalUser(email, password)
-                    isLoggedIn = true
-                    currentScreen = Screen.Home
-                    locationConsentHandledForSession = false
-                    locationConsentChecked = false
+                    plantViewModel.loginLocalUser(
+                        username = email,
+                        password = password,
+                        onSuccess = {
+                            isLoggedIn = true
+                            currentScreen = Screen.Home
+                            locationConsentHandledForSession = false
+                            locationConsentChecked = false
+                        }
+                    )
                 },
-                onGoToSignUp = { currentScreen = Screen.SignUp }
+                onGoToSignUp = {
+                    plantViewModel.clearAuthError()
+                    currentScreen = Screen.SignUp
+                }
             )
         }
         return
@@ -239,13 +268,48 @@ fun PlantPalApp() {
                 .padding(padding)
         ) {
             when (val screen = currentScreen) {
-                Screen.Home -> HomeDashboardScreen(
-                    profile = profile,
-                    plants = plants,
-                    onAddPlant = { currentScreen = Screen.AddPlant },
-                    onPlantClick = { plantId -> currentScreen = Screen.PlantDetail(plantId) },
-                    onProfileClick = { currentScreen = Screen.Profile }
-                )
+                Screen.Home -> {
+                    Column(
+                        modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        HomeDashboardScreen(
+                            profile = profile,
+                            plants = plants,
+                            onAddPlant = { currentScreen = Screen.AddPlant },
+                            onPlantClick = { plantId ->
+                                currentScreen = Screen.PlantDetail(plantId)
+                            },
+                            onProfileClick = { currentScreen = Screen.Profile },
+                            onPlantQuizClick = { plantId -> currentScreen = Screen.Quiz(plantId) }
+                        )
+                        Button(
+                            onClick = { currentScreen = Screen.QuizPicker },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp)
+                        ) {
+                            Text("Start Plant Health Quiz")
+                        }
+                    }
+                }
+
+                Screen.QuizPicker -> {
+                    PlantQuizPickerScreen(
+                        plants = plants,
+                        onSelectPlant = { plantId -> currentScreen = Screen.Quiz(plantId) }
+                    )
+                }
+
+                is Screen.Quiz -> {
+                    val selectedPlant = dbPlants.firstOrNull { it.id == screen.plantId }
+                    if (selectedPlant != null) {
+                        PlantQuizScreen(
+                            plant = selectedPlant,
+                            onDone = { currentScreen = Screen.Home }
+                        )
+                    }
+                }
 
                 Screen.AddPlant -> AddPlantScreen(
                     onSave = { name, species, plantType, wateringDays, careInstructions ->
@@ -306,9 +370,7 @@ private fun LocationConsentDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = {
-            Text("Location consent")
-        },
+        title = { Text("Location consent") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(
@@ -333,18 +395,12 @@ private fun LocationConsentDialog(
             }
         },
         confirmButton = {
-            Button(
-                onClick = onAgree,
-                enabled = checked
-            ) {
+            Button(onClick = onAgree, enabled = checked) {
                 Text("Continue")
             }
         },
         dismissButton = {
-            OutlinedButton(
-                onClick = onDismiss,
-                enabled = false
-            ) {
+            OutlinedButton(onClick = onDismiss, enabled = false) {
                 Text("Required")
             }
         }
@@ -358,6 +414,8 @@ private fun screenTitle(screen: Screen): String {
         Screen.SignUp -> "Create Account"
         Screen.Home -> "PlantPal"
         Screen.AddPlant -> "Add Plant"
+        Screen.QuizPicker -> "Choose Plant"
+        is Screen.Quiz -> "Health Quiz"
         is Screen.PlantDetail -> "Plant Details"
         Screen.Profile -> "Profile"
     }
@@ -387,22 +445,21 @@ private fun PlantPalScaffold(
                     actionIconContentColor = MaterialTheme.colorScheme.primary
                 ),
                 navigationIcon = {
-                    if (currentScreen == Screen.AddPlant || currentScreen is Screen.PlantDetail) {
+                    if (
+                        currentScreen == Screen.AddPlant ||
+                        currentScreen is Screen.PlantDetail ||
+                        currentScreen == Screen.QuizPicker ||
+                        currentScreen is Screen.Quiz
+                    ) {
                         IconButton(onClick = onNavigateHome) {
-                            Icon(
-                                Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = "Back"
-                            )
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                         }
                     }
                 },
                 actions = {
                     if (currentScreen == Screen.Profile) {
                         IconButton(onClick = onLogout) {
-                            Icon(
-                                Icons.AutoMirrored.Filled.Logout,
-                                contentDescription = "Sign out"
-                            )
+                            Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = "Sign out")
                         }
                     }
                 }
@@ -483,6 +540,7 @@ fun PlantPalAppPreview() {
                 plants = previewPlants,
                 onAddPlant = {},
                 onPlantClick = {},
+                onPlantQuizClick = {},
                 onProfileClick = {}
             )
         }

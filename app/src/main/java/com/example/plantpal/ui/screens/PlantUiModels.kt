@@ -1,4 +1,4 @@
-package com.example.plantpal
+package com.example.plantpal.ui.screens
 
 data class UiUserProfile(
     val name: String = "",

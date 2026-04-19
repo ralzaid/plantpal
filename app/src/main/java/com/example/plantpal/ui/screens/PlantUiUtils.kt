@@ -1,4 +1,4 @@
-package com.example.plantpal
+package com.example.plantpal.ui.screens
 
 import java.text.SimpleDateFormat
 import java.util.Date

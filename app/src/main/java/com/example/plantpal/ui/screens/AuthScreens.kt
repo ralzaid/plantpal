@@ -1,6 +1,7 @@
-package com.example.plantpal
+package com.example.plantpal.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -32,12 +33,13 @@ import com.example.plantpal.ui.theme.PlantPalTheme
 
 @Composable
 fun LoginScreen(
+    authErrorMessage: String?,
     onLoggedIn: (String, String) -> Unit,
     onGoToSignUp: () -> Unit
 ) {
     var email by rememberSaveable { mutableStateOf("") }
     var password by rememberSaveable { mutableStateOf("") }
-    var errorMessage by rememberSaveable { mutableStateOf<String?>(null) }
+    var localErrorMessage by rememberSaveable { mutableStateOf<String?>(null) }
 
     AuthScreenScaffold(
         title = "Welcome back",
@@ -45,29 +47,38 @@ fun LoginScreen(
     ) {
         OutlinedTextField(
             value = email,
-            onValueChange = { email = it },
+            onValueChange = {
+                email = it
+                localErrorMessage = null
+            },
             label = { Text("Email") },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true
         )
         OutlinedTextField(
             value = password,
-            onValueChange = { password = it },
+            onValueChange = {
+                password = it
+                localErrorMessage = null
+            },
             label = { Text("Password") },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
             visualTransformation = PasswordVisualTransformation()
         )
-        if (errorMessage != null) {
+
+        val messageToShow = localErrorMessage ?: authErrorMessage
+        if (messageToShow != null) {
             Text(
-                text = errorMessage!!,
+                text = messageToShow,
                 color = MaterialTheme.colorScheme.error,
                 style = MaterialTheme.typography.bodySmall
             )
         }
+
         Button(
             onClick = {
-                errorMessage = when {
+                localErrorMessage = when {
                     email.isBlank() || password.isBlank() -> "Enter your email and password."
                     else -> {
                         onLoggedIn(email.trim(), password)
@@ -79,6 +90,7 @@ fun LoginScreen(
         ) {
             Text("Log In")
         }
+
         TextButton(onClick = onGoToSignUp, modifier = Modifier.align(Alignment.End)) {
             Text("Need an account? Sign up")
         }
@@ -87,7 +99,7 @@ fun LoginScreen(
 
 @Composable
 fun SignUpScreen(
-    onSignedUp: (String, String) -> Unit,
+    onSignedUp: (String, String, String) -> Unit,
     onBackToLogin: () -> Unit
 ) {
     var name by rememberSaveable { mutableStateOf("") }
@@ -102,21 +114,30 @@ fun SignUpScreen(
     ) {
         OutlinedTextField(
             value = name,
-            onValueChange = { name = it },
+            onValueChange = {
+                name = it
+                errorMessage = null
+            },
             label = { Text("Name") },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true
         )
         OutlinedTextField(
             value = email,
-            onValueChange = { email = it },
+            onValueChange = {
+                email = it
+                errorMessage = null
+            },
             label = { Text("Email") },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true
         )
         OutlinedTextField(
             value = password,
-            onValueChange = { password = it },
+            onValueChange = {
+                password = it
+                errorMessage = null
+            },
             label = { Text("Password") },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
@@ -124,12 +145,16 @@ fun SignUpScreen(
         )
         OutlinedTextField(
             value = confirmPassword,
-            onValueChange = { confirmPassword = it },
+            onValueChange = {
+                confirmPassword = it
+                errorMessage = null
+            },
             label = { Text("Confirm password") },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
             visualTransformation = PasswordVisualTransformation()
         )
+
         if (errorMessage != null) {
             Text(
                 text = errorMessage!!,
@@ -137,15 +162,18 @@ fun SignUpScreen(
                 style = MaterialTheme.typography.bodySmall
             )
         }
+
         Button(
             onClick = {
                 errorMessage = when {
-                    name.isBlank() || email.isBlank() || password.isBlank() ->
+                    name.isBlank() || email.isBlank() || password.isBlank() || confirmPassword.isBlank() ->
                         "Fill out every field to create your profile."
-                    password.length < 6 -> "Use at least 6 characters for the password."
-                    password != confirmPassword -> "Passwords do not match."
+                    password.length < 6 ->
+                        "Use at least 6 characters for the password."
+                    password != confirmPassword ->
+                        "Passwords do not match."
                     else -> {
-                        onSignedUp(name.trim(), email.trim())
+                        onSignedUp(name.trim(), email.trim(), password)
                         null
                     }
                 }
@@ -154,6 +182,7 @@ fun SignUpScreen(
         ) {
             Text("Create Account")
         }
+
         TextButton(onClick = onBackToLogin, modifier = Modifier.align(Alignment.End)) {
             Text("Already have an account? Log in")
         }
@@ -210,7 +239,7 @@ fun AuthScreenScaffold(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(24.dp),
-                verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(14.dp)
+                verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
                 Text(
                     "PlantPal",
