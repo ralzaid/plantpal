@@ -1,5 +1,8 @@
 package com.example.plantpal
 
+import com.example.plantpal.ui.screens.UiPlant
+import com.example.plantpal.ui.screens.UiUserProfile
+
 val previewProfile = UiUserProfile(
     name = "Rafal",
     email = "rafal@example.com",

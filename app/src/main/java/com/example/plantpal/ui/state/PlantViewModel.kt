@@ -6,7 +6,7 @@ import android.location.Location
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.plantpal.BuildConfig
-import com.example.plantpal.PlantRepository
+import com.example.plantpal.data.repos.PlantRepository
 import com.example.plantpal.data.local.NotificationHelper
 import com.example.plantpal.data.local.PerenualDetails
 import com.example.plantpal.data.local.PerenualSearchResult
@@ -41,7 +41,8 @@ class PlantViewModel(application: Application) : AndroidViewModel(application) {
         db.conditionLogDao(),
         db.healthCheckDao(),
         db.environmentLogDao(),
-        db.reminderDao()
+        db.reminderDao(),
+        db.plantObservationDao()
     )
 
     private val fusedLocationClient =
@@ -60,6 +61,9 @@ class PlantViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _locationErrorMessage = MutableStateFlow<String?>(null)
     val locationErrorMessage: StateFlow<String?> = _locationErrorMessage
+
+    private val _authErrorMessage = MutableStateFlow<String?>(null)
+    val authErrorMessage: StateFlow<String?> = _authErrorMessage
 
     val plants: StateFlow<List<PlantEntity>> =
         _currentUserId
@@ -86,18 +90,78 @@ class PlantViewModel(application: Application) : AndroidViewModel(application) {
         val recommendation: String
     )
 
-    fun loginOrCreateLocalUser(username: String, password: String) {
-        val cleanedUsername = username.trim()
-        if (cleanedUsername.isBlank()) return
+    fun clearAuthError() {
+        _authErrorMessage.value = null
+    }
 
-        _currentUsername.value = cleanedUsername
-        _currentPassword.value = password
+    fun loginLocalUser(
+        username: String,
+        password: String,
+        onSuccess: () -> Unit
+    ) {
+        val cleanedUsername = username.trim()
+        if (cleanedUsername.isBlank() || password.isBlank()) {
+            _authErrorMessage.value = "Enter your username and password."
+            return
+        }
 
         viewModelScope.launch {
-            val userId = ensureCurrentUser()
-            if (userId != null) {
-                refreshSavedLocationFlag(userId)
+            val existingUser = db.userDao().getUserByUsername(cleanedUsername)
+
+            when {
+                existingUser == null -> {
+                    _authErrorMessage.value = "No account exists for that username."
+                }
+
+                existingUser.passwordHash != password -> {
+                    _authErrorMessage.value = "Incorrect password."
+                }
+
+                else -> {
+                    _currentUsername.value = cleanedUsername
+                    _currentPassword.value = password
+                    _currentUserId.value = existingUser.id
+                    _authErrorMessage.value = null
+                    refreshSavedLocationFlag(existingUser.id)
+                    onSuccess()
+                }
             }
+        }
+    }
+
+    fun registerLocalUser(
+        username: String,
+        password: String,
+        onSuccess: () -> Unit,
+        onError: (String) -> Unit
+    ) {
+        val cleanedUsername = username.trim()
+
+        if (cleanedUsername.isBlank() || password.isBlank()) {
+            onError("Enter a username and password.")
+            return
+        }
+
+        viewModelScope.launch {
+            val existingUser = db.userDao().getUserByUsername(cleanedUsername)
+
+            if (existingUser != null) {
+                onError("An account with that username already exists.")
+                return@launch
+            }
+
+            db.userDao().insertUser(
+                UserEntity(
+                    username = cleanedUsername,
+                    passwordHash = password,
+                    experienceLevel = "",
+                    numberOfPlants = 0,
+                    latitude = null,
+                    longitude = null
+                )
+            )
+
+            onSuccess()
         }
     }
 
@@ -107,6 +171,7 @@ class PlantViewModel(application: Application) : AndroidViewModel(application) {
         _currentPassword.value = null
         _hasSavedHomeLocation.value = false
         _locationErrorMessage.value = null
+        _authErrorMessage.value = null
     }
 
     fun clearLocationError() {

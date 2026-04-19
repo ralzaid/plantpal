@@ -13,9 +13,11 @@ import androidx.room.RoomDatabase
         ConditionLogEntity::class,
         HealthCheckEntity::class,
         EnvironmentLogEntity::class,
-        ReminderEntity::class
+        ReminderEntity::class,
+        PlantObservationEntity::class,
+        DailyWeatherEntity::class
     ],
-    version = 3,
+    version = 5,
     exportSchema = false
 )
 abstract class PlantDatabase : RoomDatabase() {
@@ -27,6 +29,9 @@ abstract class PlantDatabase : RoomDatabase() {
     abstract fun healthCheckDao(): HealthCheckDao
     abstract fun environmentLogDao(): EnvironmentLogDao
     abstract fun reminderDao(): ReminderDao
+    abstract fun plantObservationDao(): PlantObservationDao
+
+    abstract fun dailyWeatherDao(): DailyWeatherDao
 
     companion object {
         @Volatile
@@ -39,7 +44,7 @@ abstract class PlantDatabase : RoomDatabase() {
                     PlantDatabase::class.java,
                     "plantpal_db"
                 )
-                    .fallbackToDestructiveMigration()
+                    .fallbackToDestructiveMigration(true)
                     .build()
 
                 INSTANCE = instance
