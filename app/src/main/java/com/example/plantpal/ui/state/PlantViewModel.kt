@@ -8,7 +8,6 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.plantpal.BuildConfig
 import com.example.plantpal.data.repos.PlantRepository
-import com.example.plantpal.data.local.NotificationHelper
 import com.example.plantpal.data.local.PerenualDetails
 import com.example.plantpal.data.local.PerenualSearchResult
 import com.example.plantpal.data.local.PerenualService
@@ -96,7 +95,9 @@ class PlantViewModel(application: Application) : AndroidViewModel(application) {
         val city: String,
         val temp: Double,
         val humidity: Int,
-        val recommendation: String
+        val recommendation: String,
+        val windSpeedMetersPerSecond: Double? = null,
+        val rainMillimetersLastHour: Double? = null
     )
 
     init {
@@ -164,7 +165,7 @@ class PlantViewModel(application: Application) : AndroidViewModel(application) {
                 return@launch
             }
 
-            db.userDao().insertUser(
+            val userId = db.userDao().insertUser(
                 UserEntity(
                     username = cleanedUsername,
                     passwordHash = password,
@@ -173,8 +174,14 @@ class PlantViewModel(application: Application) : AndroidViewModel(application) {
                     latitude = null,
                     longitude = null
                 )
-            )
+            ).toInt()
 
+            _currentUsername.value = cleanedUsername
+            _currentPassword.value = password
+            _currentUserId.value = userId
+            persistSession(userId, cleanedUsername)
+            _authErrorMessage.value = null
+            refreshSavedLocationFlag(userId)
             onSuccess()
         }
     }
@@ -388,7 +395,9 @@ class PlantViewModel(application: Application) : AndroidViewModel(application) {
                     city = weather.name,
                     temp = weather.main.temp,
                     humidity = weather.main.humidity,
-                    recommendation = recommendation
+                    recommendation = recommendation,
+                    windSpeedMetersPerSecond = weather.wind?.speed,
+                    rainMillimetersLastHour = weather.rain?.oneHour
                 )
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -411,31 +420,127 @@ class PlantViewModel(application: Application) : AndroidViewModel(application) {
 
     fun addPlant(
         name: String,
-        species: String,
-        plantType: String,
-        wateringFrequencyDays: Int,
-        careInstructions: String
+        placement: String,
+        selectedPerenualResult: PerenualSearchResult?
     ) {
         viewModelScope.launch {
             val userId = ensureCurrentUser() ?: return@launch
+            val care = resolvePlantCare(name, selectedPerenualResult)
 
             repository.addPlant(
                 PlantEntity(
                     userId = userId,
-                    name = name,
-                    species = species,
-                    plantType = plantType,
-                    careInstructions = careInstructions,
-                    wateringFrequencyDays = wateringFrequencyDays,
+                    name = name.trim(),
+                    species = care.species,
+                    plantType = placement.trim(),
+                    careInstructions = care.instructions,
+                    lightNeeds = care.lightNeeds,
+                    imageUrl = care.imageUrl,
+                    wateringFrequencyDays = care.wateringFrequencyDays,
                     lastWateredDate = ""
                 )
             )
+        }
+    }
 
-            NotificationHelper.sendNotification(
-                getApplication(),
-                "Demo weather alert 🌬️",
-                "High wind warning. Keep plants indoors to avoid damage. "
-            )
+    private suspend fun resolvePlantCare(
+        plantName: String,
+        selectedResult: PerenualSearchResult?
+    ): ResolvedPlantCare {
+        val fallback = ResolvedPlantCare(
+            species = selectedResult?.scientificName?.firstOrNull().orEmpty(),
+            instructions = defaultCareInstructions(selectedResult?.commonName ?: plantName),
+            lightNeeds = "Bright indirect light",
+            imageUrl = selectedResult?.defaultImage?.originalUrl
+                ?: selectedResult?.defaultImage?.thumbnail,
+            wateringFrequencyDays = 7
+        )
+
+        val apiKey = BuildConfig.PERENUAL_API_KEY.trim()
+        if (apiKey.isBlank()) return fallback
+
+        return try {
+            val resolvedSearchResult = selectedResult ?: PerenualService.api.searchPlants(
+                apiKey = apiKey,
+                query = plantName.trim()
+            ).body()?.data?.firstOrNull()
+
+            val details = resolvedSearchResult?.id?.let { id ->
+                PerenualService.api.getPlantDetails(id, apiKey).body()
+            }
+
+            if (details == null && resolvedSearchResult == null) {
+                fallback
+            } else {
+                ResolvedPlantCare(
+                    species = resolvedSearchResult?.scientificName?.firstOrNull().orEmpty(),
+                    instructions = buildCareInstructions(
+                        details = details,
+                        plantName = resolvedSearchResult?.commonName ?: plantName
+                    ),
+                    lightNeeds = details?.sunlight
+                        ?.filter { it.isNotBlank() }
+                        ?.joinToString(separator = ", ")
+                        .orEmpty()
+                        .ifBlank { fallback.lightNeeds },
+                    imageUrl = details?.defaultImage?.originalUrl
+                        ?: details?.defaultImage?.thumbnail
+                        ?: resolvedSearchResult?.defaultImage?.originalUrl
+                        ?: resolvedSearchResult?.defaultImage?.thumbnail,
+                    wateringFrequencyDays = wateringFrequencyDaysFor(details?.watering)
+                )
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            fallback
+        }
+    }
+
+    private fun buildCareInstructions(
+        details: PerenualDetails?,
+        plantName: String
+    ): String {
+        if (details == null) {
+            return defaultCareInstructions(plantName)
+        }
+
+        val parts = mutableListOf<String>()
+
+        details.watering
+            ?.takeIf { it.isNotBlank() }
+            ?.let { parts += "Watering: $it." }
+
+        details.sunlight
+            ?.filter { it.isNotBlank() }
+            ?.joinToString(separator = ", ")
+            ?.takeIf { it.isNotBlank() }
+            ?.let { parts += "Light: $it." }
+
+        details.description
+            ?.takeIf { it.isNotBlank() }
+            ?.let { parts += it }
+
+        return parts.joinToString(separator = "\n\n")
+            .ifBlank {
+                defaultCareInstructions(plantName)
+            }
+    }
+
+    private fun defaultCareInstructions(plantName: String): String {
+        val displayName = plantName.ifBlank { "this plant" }
+        return "Care profile for $displayName:\n\n" +
+            "Watering: Check the top inch of soil once a week and water only when it feels dry.\n\n" +
+            "Light: Start with bright indirect light, then adjust if leaves scorch, fade, or stretch.\n\n" +
+            "Care: Keep the plant in a stable spot with drainage and avoid sudden changes in temperature or light."
+    }
+
+    private fun wateringFrequencyDaysFor(watering: String?): Int {
+        return when (watering?.trim()?.lowercase(Locale.US)) {
+            "frequent" -> 3
+            "average" -> 7
+            "minimum" -> 14
+            "none" -> 21
+            else -> 7
         }
     }
 
@@ -457,4 +562,12 @@ class PlantViewModel(application: Application) : AndroidViewModel(application) {
         const val SESSION_USER_ID = "session_user_id"
         const val SESSION_USERNAME = "session_username"
     }
+
+    private data class ResolvedPlantCare(
+        val species: String,
+        val instructions: String,
+        val lightNeeds: String,
+        val imageUrl: String?,
+        val wateringFrequencyDays: Int
+    )
 }

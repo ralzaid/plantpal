@@ -18,3 +18,16 @@ data class UiPlant(
     val lastWateredDate: String = "Not watered yet",
     val imageUrl: String? = null
 )
+
+data class UiWateringLog(
+    val id: Int,
+    val wateredOn: String
+)
+
+data class UiWeatherSummary(
+    val temp: Double,
+    val humidity: Int,
+    val recommendation: String,
+    val windSpeedMetersPerSecond: Double? = null,
+    val rainMillimetersLastHour: Double? = null
+)

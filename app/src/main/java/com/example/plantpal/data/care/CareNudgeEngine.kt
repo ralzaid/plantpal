@@ -118,7 +118,7 @@ object CareNudgeEngine {
         val overdueForWater = daysSinceWatered == null ||
             daysSinceWatered >= plant.wateringFrequencyDays.coerceAtLeast(1)
 
-        val isOutdoor = plant.plantType.equals("Outdoor", ignoreCase = true)
+        val isOutdoor = isOutdoorPlacement(plant.plantType)
         val highWaterNeed = plant.wateringFrequencyDays <= 3 ||
             plant.careInstructions.contains("moist", ignoreCase = true) ||
             plant.careInstructions.contains("frequent", ignoreCase = true)
@@ -268,6 +268,20 @@ object CareNudgeEngine {
             condition.equals("Drizzle", ignoreCase = true) ||
             condition.equals("Thunderstorm", ignoreCase = true) ||
             (weather.rainMillimetersLastHour ?: 0.0) >= 7.0
+    }
+
+    private fun isOutdoorPlacement(placement: String): Boolean {
+        val normalized = placement.lowercase(Locale.US)
+        return listOf(
+            "outdoor",
+            "outside",
+            "patio",
+            "balcony",
+            "porch",
+            "garden",
+            "yard",
+            "deck"
+        ).any { normalized.contains(it) }
     }
 
     private fun evidence(

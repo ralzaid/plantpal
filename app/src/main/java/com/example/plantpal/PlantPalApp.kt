@@ -61,9 +61,13 @@ import com.example.plantpal.ui.screens.HomeDashboardScreen
 import com.example.plantpal.ui.screens.LoginScreen
 import com.example.plantpal.ui.screens.PlantDetailScreen
 import com.example.plantpal.ui.screens.ProfileScreen
+import com.example.plantpal.ui.screens.ResearchPlantScreen
 import com.example.plantpal.ui.screens.SignUpScreen
 import com.example.plantpal.ui.state.PlantViewModel
 import com.example.plantpal.ui.screens.UiPlant
+import com.example.plantpal.ui.screens.UiUserProfile
+import com.example.plantpal.ui.screens.UiWateringLog
+import com.example.plantpal.ui.screens.UiWeatherSummary
 import com.example.plantpal.ui.theme.PlantPalTheme
 import kotlinx.parcelize.Parcelize
 
@@ -81,6 +85,9 @@ sealed class Screen : Parcelable {
     data object AddPlant : Screen()
 
     @Parcelize
+    data object ResearchPlant : Screen()
+
+    @Parcelize
     data class Quiz(val plantId: Int) : Screen()
 
     @Parcelize
@@ -92,7 +99,7 @@ sealed class Screen : Parcelable {
 
 @Composable
 fun PlantPalApp() {
-    var profile by remember { mutableStateOf(previewProfile) }
+    var profile by remember { mutableStateOf(UiUserProfile()) }
 
     val plantViewModel: PlantViewModel = viewModel()
     val dbPlants by plantViewModel.plants.collectAsState()
@@ -100,6 +107,7 @@ fun PlantPalApp() {
     val isSessionReady by plantViewModel.isSessionReady.collectAsState()
     val hasSavedHomeLocation by plantViewModel.hasSavedHomeLocation.collectAsState()
     val locationErrorMessage by plantViewModel.locationErrorMessage.collectAsState()
+    val weatherState by plantViewModel.weatherState.collectAsState()
     val isLoggedIn = currentUserId != null
 
     if (locationErrorMessage != null) {
@@ -159,6 +167,7 @@ fun PlantPalApp() {
                 }
             }
 
+            plantViewModel.refreshWeatherFromSavedHomeLocation(BuildConfig.OPENWEATHER_API_KEY)
             scheduleReminderWorker(context, userId)
         }
     }
@@ -187,11 +196,11 @@ fun PlantPalApp() {
             nickname = "",
             species = it.species,
             location = it.plantType,
-            lightNeeds = "",
+            lightNeeds = it.lightNeeds,
             wateringFrequencyDays = it.wateringFrequencyDays,
             careInstructions = it.careInstructions,
             lastWateredDate = it.lastWateredDate,
-            imageUrl = null
+            imageUrl = it.imageUrl
         )
     }
 
@@ -242,7 +251,9 @@ fun PlantPalApp() {
                         password = password,
                         onSuccess = {
                             profile = profile.copy(name = name, email = email)
-                            currentScreen = Screen.Login
+                            currentScreen = Screen.Home
+                            locationConsentHandledForSession = false
+                            locationConsentChecked = false
                         },
                         onError = { message ->
                             // You can later surface this on the sign-up page too if you want.
@@ -274,8 +285,11 @@ fun PlantPalApp() {
         return
     }
 
+    val displayName = profile.name.trim().takeIf { it.isNotBlank() } ?: "there"
+
     PlantPalScaffold(
         currentScreen = currentScreen,
+        homeGreeting = "Hi, $displayName!",
         onNavigateHome = { currentScreen = Screen.Home },
         onNavigateAdd = { currentScreen = Screen.AddPlant },
         onNavigateProfile = { currentScreen = Screen.Profile },
@@ -294,14 +308,24 @@ fun PlantPalApp() {
         ) {
             when (val screen = currentScreen) {
                 Screen.Home -> HomeDashboardScreen(
-                    profile = profile,
                     plants = plants,
+                    weather = weatherState?.let {
+                        UiWeatherSummary(
+                            temp = it.temp,
+                            humidity = it.humidity,
+                            recommendation = it.recommendation,
+                            windSpeedMetersPerSecond = it.windSpeedMetersPerSecond,
+                            rainMillimetersLastHour = it.rainMillimetersLastHour
+                        )
+                    },
+                    onResearchPlant = { currentScreen = Screen.ResearchPlant },
                     onAddPlant = { currentScreen = Screen.AddPlant },
                     onPlantClick = { plantId ->
                         currentScreen = Screen.PlantDetail(plantId)
-                    },
-                    onProfileClick = { currentScreen = Screen.Profile }
+                    }
                 )
+
+                Screen.ResearchPlant -> ResearchPlantScreen()
 
                 is Screen.Quiz -> {
                     val selectedPlant = dbPlants.firstOrNull { it.id == screen.plantId }
@@ -314,13 +338,11 @@ fun PlantPalApp() {
                 }
 
                 Screen.AddPlant -> AddPlantScreen(
-                    onSave = { name, species, plantType, wateringDays, careInstructions ->
+                    onSave = { name, placement, selectedPerenualResult ->
                         plantViewModel.addPlant(
                             name = name,
-                            species = species,
-                            plantType = plantType,
-                            wateringFrequencyDays = wateringDays,
-                            careInstructions = careInstructions
+                            placement = placement,
+                            selectedPerenualResult = selectedPerenualResult
                         )
                         currentScreen = Screen.Home
                     }
@@ -328,9 +350,19 @@ fun PlantPalApp() {
 
                 is Screen.PlantDetail -> {
                     val selectedPlant = dbPlants.firstOrNull { it.id == screen.plantId }
+                    val wateringLogs by plantViewModel.getLogs(screen.plantId).collectAsState(emptyList())
 
                     PlantDetailScreen(
                         plant = plants.firstOrNull { it.id == screen.plantId },
+                        wateringLogs = wateringLogs.map {
+                            UiWateringLog(
+                                id = it.id,
+                                wateredOn = it.wateredOn
+                            )
+                        },
+                        onWaterPlant = {
+                            selectedPlant?.let { plantViewModel.waterPlant(it) }
+                        },
                         onHealthCheck = { currentScreen = Screen.Quiz(screen.plantId) },
                         onDelete = {
                             selectedPlant?.let { plantViewModel.deletePlant(it) }
@@ -410,12 +442,13 @@ private fun LocationConsentDialog(
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
-private fun screenTitle(screen: Screen): String {
+private fun screenTitle(screen: Screen, homeGreeting: String): String {
     return when (screen) {
         Screen.Login -> "Welcome"
         Screen.SignUp -> "Create Account"
-        Screen.Home -> "PlantPal"
+        Screen.Home -> homeGreeting
         Screen.AddPlant -> "Add Plant"
+        Screen.ResearchPlant -> "Research"
         is Screen.Quiz -> "Health Quiz"
         is Screen.PlantDetail -> "Plant Details"
         Screen.Profile -> "Profile"
@@ -426,6 +459,7 @@ private fun screenTitle(screen: Screen): String {
 @Composable
 private fun PlantPalScaffold(
     currentScreen: Screen,
+    homeGreeting: String,
     onNavigateHome: () -> Unit,
     onNavigateAdd: () -> Unit,
     onNavigateProfile: () -> Unit,
@@ -438,7 +472,7 @@ private fun PlantPalScaffold(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
-                title = { Text(screenTitle(currentScreen)) },
+                title = { Text(screenTitle(currentScreen, homeGreeting)) },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background,
                     titleContentColor = MaterialTheme.colorScheme.onBackground,
@@ -448,6 +482,7 @@ private fun PlantPalScaffold(
                 navigationIcon = {
                     if (
                         currentScreen == Screen.AddPlant ||
+                        currentScreen == Screen.ResearchPlant ||
                         currentScreen is Screen.PlantDetail ||
                         currentScreen is Screen.Quiz
                     ) {
@@ -527,6 +562,7 @@ fun PlantPalAppPreview() {
     PlantPalTheme {
         PlantPalScaffold(
             currentScreen = Screen.Home,
+            homeGreeting = "Hi, Rafal!",
             onNavigateHome = {},
             onNavigateAdd = {},
             onNavigateProfile = {},
@@ -536,11 +572,15 @@ fun PlantPalAppPreview() {
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding),
-                profile = previewProfile,
                 plants = previewPlants,
+                weather = UiWeatherSummary(
+                    temp = 24.0,
+                    humidity = 76,
+                    recommendation = "Conditions are stable. Follow your regular watering schedule."
+                ),
+                onResearchPlant = {},
                 onAddPlant = {},
-                onPlantClick = {},
-                onProfileClick = {}
+                onPlantClick = {}
             )
         }
     }

@@ -4,31 +4,40 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.WaterDrop
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import coil.compose.AsyncImage
 import com.example.plantpal.previewPlants
 import com.example.plantpal.ui.theme.PlantPalTheme
+import java.util.Date
+import java.util.concurrent.TimeUnit
 
 @Composable
 fun PlantDetailScreen(
     plant: UiPlant?,
+    wateringLogs: List<UiWateringLog>,
+    onWaterPlant: () -> Unit,
     onHealthCheck: () -> Unit,
     onDelete: () -> Unit
 ) {
@@ -41,6 +50,8 @@ fun PlantDetailScreen(
 
     PlantDetailContent(
         plant = plant,
+        wateringLogs = wateringLogs,
+        onWaterPlant = onWaterPlant,
         onHealthCheck = onHealthCheck,
         onDelete = onDelete
     )
@@ -49,9 +60,13 @@ fun PlantDetailScreen(
 @Composable
 fun PlantDetailContent(
     plant: UiPlant,
+    wateringLogs: List<UiWateringLog>,
+    onWaterPlant: () -> Unit,
     onHealthCheck: () -> Unit,
     onDelete: () -> Unit
 ) {
+    val wateredToday = plant.lastWateredDate == todayStorageDate()
+
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -65,16 +80,6 @@ fun PlantDetailContent(
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
             ) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (plant.imageUrl != null) {
-                        AsyncImage(
-                            model = plant.imageUrl,
-                            contentDescription = null,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(220.dp),
-                            contentScale = ContentScale.Crop
-                        )
-                    }
                     Text(
                         text = plant.nickname.ifBlank { plant.name },
                         style = MaterialTheme.typography.headlineSmall,
@@ -82,8 +87,8 @@ fun PlantDetailContent(
                     )
                     Text("Plant name: ${plant.name}")
                     Text("Species: ${plant.species.ifBlank { "Unknown" }}")
-                    Text("Location: ${plant.location}")
-                    Text("Light needs: ${plant.lightNeeds}")
+                    Text("Placed: ${plant.location}")
+                    Text("Light needs: ${plant.lightNeeds.ifBlank { "Unknown" }}")
                     Text("Water every: ${plant.wateringFrequencyDays} days")
                     Text("Last watered: ${formatStoredDate(plant.lastWateredDate)}")
                 }
@@ -103,9 +108,7 @@ fun PlantDetailContent(
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        plant.careInstructions.ifBlank {
-                            "Care instructions can be added later. This prototype keeps plant setup lightweight and shows the care section here in the detail view."
-                        }
+                        displayCareInstructions(plant)
                     )
                 }
             }
@@ -119,7 +122,7 @@ fun PlantDetailContent(
 
         item {
             Text(
-                "Tracking",
+                "Watering",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold
             )
@@ -130,9 +133,35 @@ fun PlantDetailContent(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
             ) {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Tracking features will be added later.")
-                    Text("For now, this screen shows the plant details and overall structure of the app.")
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    WateringCounter(
+                        plant = plant,
+                        wateredToday = wateredToday,
+                        onWaterPlant = onWaterPlant
+                    )
+
+                    Text(
+                        "Recent water log",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold
+                    )
+
+                    if (wateringLogs.isEmpty()) {
+                        Text(
+                            "No watering logged yet.",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    } else {
+                        wateringLogs.take(5).forEach { log ->
+                            Text(
+                                "- ${formatStoredDate(log.wateredOn)}",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -151,8 +180,85 @@ fun PlantDetailScreenPreview() {
     PlantPalTheme {
         PlantDetailContent(
             plant = previewPlants.first(),
+            wateringLogs = listOf(UiWateringLog(id = 1, wateredOn = "2026-04-21")),
+            onWaterPlant = { },
             onHealthCheck = { },
             onDelete = { }
         )
     }
+}
+
+@Composable
+private fun WateringCounter(
+    plant: UiPlant,
+    wateredToday: Boolean,
+    onWaterPlant: () -> Unit
+) {
+    val daysRemaining = daysUntilNextWatering(plant)
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(
+                "Next Watering in",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = "$daysRemaining ${if (daysRemaining == 1L) "day" else "days"}",
+                style = MaterialTheme.typography.displaySmall,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                "watering every ${plant.wateringFrequencyDays} days",
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
+        Button(
+            onClick = onWaterPlant,
+            enabled = !wateredToday,
+            modifier = Modifier.size(84.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = Color(0xFF24C7B7),
+                contentColor = Color.White,
+                disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        ) {
+            Icon(
+                imageVector = Icons.Default.WaterDrop,
+                contentDescription = "Water today"
+            )
+        }
+    }
+}
+
+private fun todayStorageDate(): String {
+    return synchronized(storageDateFormat) {
+        storageDateFormat.format(Date())
+    }
+}
+
+private fun daysUntilNextWatering(plant: UiPlant): Long {
+    val lastWatered = parseStoredDate(plant.lastWateredDate) ?: return 0
+    val elapsedDays = TimeUnit.MILLISECONDS.toDays(Date().time - lastWatered.time).coerceAtLeast(0)
+    return (plant.wateringFrequencyDays - elapsedDays).coerceAtLeast(0)
+}
+
+private fun displayCareInstructions(plant: UiPlant): String {
+    val instructions = plant.careInstructions.trim()
+    if (
+        instructions.isBlank() ||
+        instructions.contains("not available yet", ignoreCase = true) ||
+        instructions.contains("can be added later", ignoreCase = true)
+    ) {
+        return "Watering: Check the top inch of soil and water only when it feels dry.\n\n" +
+            "Light: Start with ${plant.lightNeeds.ifBlank { "bright indirect light" }}.\n\n" +
+            "Care: Keep the plant in a stable spot with drainage and watch for leaf changes."
+    }
+    return instructions
 }
