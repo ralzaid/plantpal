@@ -24,6 +24,8 @@ data class PlantEntity(
     val species: String,
     val plantType: String,
     val careInstructions: String,
+    val lightNeeds: String = "",
+    val imageUrl: String? = null,
     val wateringFrequencyDays: Int,
     val lastWateredDate: String = ""
 )

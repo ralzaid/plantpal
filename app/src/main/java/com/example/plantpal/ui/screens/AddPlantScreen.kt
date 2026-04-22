@@ -4,6 +4,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -12,8 +13,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -37,13 +38,11 @@ import javax.net.ssl.SSLException
 
 @Composable
 fun AddPlantScreen(
-    onSave: (String, String, String, Int, String) -> Unit
+    onSave: (String, String, PerenualSearchResult?) -> Unit
 ) {
     var name by remember { mutableStateOf("") }
-    var species by remember { mutableStateOf("") }
-    var plantType by remember { mutableStateOf("Indoor") }
-    var wateringDays by remember { mutableStateOf("7") }
-    var careInstructions by remember { mutableStateOf("") }
+    var placement by remember { mutableStateOf("Indoor") }
+    var selectedResult by remember { mutableStateOf<PerenualSearchResult?>(null) }
 
     var searchResults by remember { mutableStateOf<List<PerenualSearchResult>>(emptyList()) }
     var searchStatus by remember { mutableStateOf<String?>(null) }
@@ -127,14 +126,9 @@ fun AddPlantScreen(
     ) {
         item {
             Text(
-                "Start typing a plant name and matching Perenual results will appear automatically.",
-                style = MaterialTheme.typography.bodyMedium
+                "Add Plant",
+                style = MaterialTheme.typography.headlineSmall
             )
-        }
-
-        item {
-            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-            Text("Plant Details", style = MaterialTheme.typography.titleMedium)
         }
 
         item {
@@ -143,6 +137,7 @@ fun AddPlantScreen(
                     value = name,
                     onValueChange = {
                         name = it
+                        selectedResult = null
                         searchStatus = null
                     },
                     label = { Text("Plant name") },
@@ -153,7 +148,11 @@ fun AddPlantScreen(
                     Text(
                         text = it,
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.primary
+                        color = if (selectedResult == null) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        }
                     )
                 }
             }
@@ -165,13 +164,10 @@ fun AddPlantScreen(
                     result = result,
                     onUseResult = {
                         skipNextLookup = true
+                        selectedResult = result
                         name = result.commonName ?: name
-                        species = result.scientificName?.firstOrNull().orEmpty()
-                        if (careInstructions.isBlank()) {
-                            careInstructions = "Follow plant-specific care guidance."
-                        }
                         searchResults = emptyList()
-                        searchStatus = null
+                        searchStatus = "Selected ${result.commonName ?: "plant"}"
                         isSearching = false
                     }
                 )
@@ -179,39 +175,26 @@ fun AddPlantScreen(
         }
 
         item {
-            OutlinedTextField(
-                value = species,
-                onValueChange = { species = it },
-                label = { Text("Species") },
-                modifier = Modifier.fillMaxWidth()
-            )
-        }
-
-        item {
-            OutlinedTextField(
-                value = plantType,
-                onValueChange = { plantType = it },
-                label = { Text("Plant type (Indoor/Outdoor)") },
-                modifier = Modifier.fillMaxWidth()
-            )
-        }
-
-        item {
-            OutlinedTextField(
-                value = wateringDays,
-                onValueChange = { wateringDays = it.filter { ch -> ch.isDigit() } },
-                label = { Text("Water every X days") },
-                modifier = Modifier.fillMaxWidth()
-            )
-        }
-
-        item {
-            OutlinedTextField(
-                value = careInstructions,
-                onValueChange = { careInstructions = it },
-                label = { Text("Care instructions") },
-                modifier = Modifier.fillMaxWidth()
-            )
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Placement", style = MaterialTheme.typography.titleSmall)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    PlacementOptionButton(
+                        label = "Indoor",
+                        selected = placement == "Indoor",
+                        onClick = { placement = "Indoor" },
+                        modifier = Modifier.weight(1f)
+                    )
+                    PlacementOptionButton(
+                        label = "Outdoor",
+                        selected = placement == "Outdoor",
+                        onClick = { placement = "Outdoor" },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
         }
 
         item {
@@ -220,17 +203,40 @@ fun AddPlantScreen(
                     if (name.isNotBlank()) {
                         onSave(
                             name.trim(),
-                            species.trim(),
-                            plantType.trim(),
-                            wateringDays.toIntOrNull() ?: 7,
-                            careInstructions.trim()
+                            placement,
+                            selectedResult
                         )
                     }
                 },
+                enabled = name.isNotBlank(),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text("Save Plant")
             }
+        }
+    }
+}
+
+@Composable
+private fun PlacementOptionButton(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    if (selected) {
+        Button(
+            onClick = onClick,
+            modifier = modifier
+        ) {
+            Text(label)
+        }
+    } else {
+        OutlinedButton(
+            onClick = onClick,
+            modifier = modifier
+        ) {
+            Text(label)
         }
     }
 }
@@ -249,7 +255,7 @@ private fun SearchResultCard(
         )
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Text(
