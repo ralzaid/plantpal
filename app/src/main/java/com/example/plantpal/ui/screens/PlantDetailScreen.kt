@@ -29,6 +29,7 @@ import com.example.plantpal.ui.theme.PlantPalTheme
 @Composable
 fun PlantDetailScreen(
     plant: UiPlant?,
+    onHealthCheck: () -> Unit,
     onDelete: () -> Unit
 ) {
     if (plant == null) {
@@ -40,6 +41,7 @@ fun PlantDetailScreen(
 
     PlantDetailContent(
         plant = plant,
+        onHealthCheck = onHealthCheck,
         onDelete = onDelete
     )
 }
@@ -47,6 +49,7 @@ fun PlantDetailScreen(
 @Composable
 fun PlantDetailContent(
     plant: UiPlant,
+    onHealthCheck: () -> Unit,
     onDelete: () -> Unit
 ) {
     LazyColumn(
@@ -109,8 +112,8 @@ fun PlantDetailContent(
         }
 
         item {
-            Button(onClick = onDelete, modifier = Modifier.fillMaxWidth()) {
-                Text("Delete Plant")
+            Button(onClick = onHealthCheck, modifier = Modifier.fillMaxWidth()) {
+                Text("Emergency Health Check")
             }
         }
 
@@ -133,6 +136,12 @@ fun PlantDetailContent(
                 }
             }
         }
+
+        item {
+            Button(onClick = onDelete, modifier = Modifier.fillMaxWidth()) {
+                Text("Delete Plant")
+            }
+        }
     }
 }
 
@@ -142,6 +151,7 @@ fun PlantDetailScreenPreview() {
     PlantPalTheme {
         PlantDetailContent(
             plant = previewPlants.first(),
+            onHealthCheck = { },
             onDelete = { }
         )
     }

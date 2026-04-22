@@ -3,7 +3,6 @@ package com.example.plantpal.ui.screens
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -30,8 +29,7 @@ fun HomeDashboardScreen(
     plants: List<UiPlant>,
     onAddPlant: () -> Unit,
     onPlantClick: (Int) -> Unit,
-    onProfileClick: () -> Unit,
-    onPlantQuizClick: (Int) -> Unit
+    onProfileClick: () -> Unit
 ) {
     HomeDashboardContent(
         modifier = Modifier.fillMaxSize(),
@@ -39,8 +37,7 @@ fun HomeDashboardScreen(
         plants = plants,
         onAddPlant = onAddPlant,
         onPlantClick = onPlantClick,
-        onProfileClick = onProfileClick,
-        onPlantQuizClick = onPlantQuizClick
+        onProfileClick = onProfileClick
     )
 }
 
@@ -51,8 +48,7 @@ fun HomeDashboardContent(
     plants: List<UiPlant>,
     onAddPlant: () -> Unit,
     onPlantClick: (Int) -> Unit,
-    onProfileClick: () -> Unit,
-    onPlantQuizClick: (Int) -> Unit
+    onProfileClick: () -> Unit
 ) {
     val displayName = profile.name.ifBlank { "Grower" }
 
@@ -89,8 +85,7 @@ fun HomeDashboardContent(
             items(plants) { plant ->
                 PlantSummaryCard(
                     plant = plant,
-                    onViewDetails = { onPlantClick(plant.id) },
-                    onStartQuiz = { onPlantQuizClick(plant.id) }
+                    onViewDetails = { onPlantClick(plant.id) }
                 )
             }
         }
@@ -100,8 +95,7 @@ fun HomeDashboardContent(
 @Composable
 fun PlantSummaryCard(
     plant: UiPlant,
-    onViewDetails: () -> Unit,
-    onStartQuiz: () -> Unit
+    onViewDetails: () -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -123,20 +117,11 @@ fun PlantSummaryCard(
             Text("Water every ${plant.wateringFrequencyDays} days", color = MaterialTheme.colorScheme.onSurface)
             Text("Last watered: ${formatStoredDate(plant.lastWateredDate)}", color = MaterialTheme.colorScheme.onSurfaceVariant)
 
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedButton(
-                    onClick = onViewDetails,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text("View Details")
-                }
-
-                OutlinedButton(
-                    onClick = onStartQuiz,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text("Start Quiz")
-                }
+            OutlinedButton(
+                onClick = onViewDetails,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("View Details")
             }
         }
     }
@@ -151,8 +136,7 @@ fun HomeDashboardPreview() {
             plants = previewPlants,
             onAddPlant = { },
             onPlantClick = { },
-            onProfileClick = { },
-            onPlantQuizClick = { }
+            onProfileClick = { }
 
 
         )

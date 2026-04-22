@@ -54,7 +54,6 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.plantpal.data.local.NotificationHelper
 import com.example.plantpal.data.workers.scheduleReminderWorker
-import com.example.plantpal.quiz.PlantQuizPickerScreen
 import com.example.plantpal.quiz.PlantQuizScreen
 import com.example.plantpal.ui.screens.AddPlantScreen
 import com.example.plantpal.ui.screens.HomeDashboardContent
@@ -80,9 +79,6 @@ sealed class Screen : Parcelable {
 
     @Parcelize
     data object AddPlant : Screen()
-
-    @Parcelize
-    data object QuizPicker : Screen()
 
     @Parcelize
     data class Quiz(val plantId: Int) : Screen()
@@ -297,45 +293,22 @@ fun PlantPalApp() {
                 .padding(padding)
         ) {
             when (val screen = currentScreen) {
-                Screen.Home -> {
-                    Column(
-                        modifier = Modifier.fillMaxSize(),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        HomeDashboardScreen(
-                            profile = profile,
-                            plants = plants,
-                            onAddPlant = { currentScreen = Screen.AddPlant },
-                            onPlantClick = { plantId ->
-                                currentScreen = Screen.PlantDetail(plantId)
-                            },
-                            onProfileClick = { currentScreen = Screen.Profile },
-                            onPlantQuizClick = { plantId -> currentScreen = Screen.Quiz(plantId) }
-                        )
-                        Button(
-                            onClick = { currentScreen = Screen.QuizPicker },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp)
-                        ) {
-                            Text("Start Plant Health Quiz")
-                        }
-                    }
-                }
-
-                Screen.QuizPicker -> {
-                    PlantQuizPickerScreen(
-                        plants = plants,
-                        onSelectPlant = { plantId -> currentScreen = Screen.Quiz(plantId) }
-                    )
-                }
+                Screen.Home -> HomeDashboardScreen(
+                    profile = profile,
+                    plants = plants,
+                    onAddPlant = { currentScreen = Screen.AddPlant },
+                    onPlantClick = { plantId ->
+                        currentScreen = Screen.PlantDetail(plantId)
+                    },
+                    onProfileClick = { currentScreen = Screen.Profile }
+                )
 
                 is Screen.Quiz -> {
                     val selectedPlant = dbPlants.firstOrNull { it.id == screen.plantId }
                     if (selectedPlant != null) {
                         PlantQuizScreen(
                             plant = selectedPlant,
-                            onDone = { currentScreen = Screen.Home }
+                            onDone = { currentScreen = Screen.PlantDetail(screen.plantId) }
                         )
                     }
                 }
@@ -358,6 +331,7 @@ fun PlantPalApp() {
 
                     PlantDetailScreen(
                         plant = plants.firstOrNull { it.id == screen.plantId },
+                        onHealthCheck = { currentScreen = Screen.Quiz(screen.plantId) },
                         onDelete = {
                             selectedPlant?.let { plantViewModel.deletePlant(it) }
                             currentScreen = Screen.Home
@@ -442,7 +416,6 @@ private fun screenTitle(screen: Screen): String {
         Screen.SignUp -> "Create Account"
         Screen.Home -> "PlantPal"
         Screen.AddPlant -> "Add Plant"
-        Screen.QuizPicker -> "Choose Plant"
         is Screen.Quiz -> "Health Quiz"
         is Screen.PlantDetail -> "Plant Details"
         Screen.Profile -> "Profile"
@@ -476,7 +449,6 @@ private fun PlantPalScaffold(
                     if (
                         currentScreen == Screen.AddPlant ||
                         currentScreen is Screen.PlantDetail ||
-                        currentScreen == Screen.QuizPicker ||
                         currentScreen is Screen.Quiz
                     ) {
                         IconButton(onClick = onNavigateHome) {
@@ -568,7 +540,6 @@ fun PlantPalAppPreview() {
                 plants = previewPlants,
                 onAddPlant = {},
                 onPlantClick = {},
-                onPlantQuizClick = {},
                 onProfileClick = {}
             )
         }

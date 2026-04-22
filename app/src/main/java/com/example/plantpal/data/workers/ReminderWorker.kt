@@ -5,14 +5,13 @@ import android.content.Context
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.example.plantpal.BuildConfig
+import com.example.plantpal.data.care.CareNudgeEngine
+import com.example.plantpal.data.care.TemplateCareNudgeCopywriter
+import com.example.plantpal.data.care.WeatherSnapshot
 import com.example.plantpal.data.local.NotificationHelper
 import com.example.plantpal.data.local.PlantDatabase
 import com.example.plantpal.data.local.WeatherService
 import kotlinx.coroutines.flow.first
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
-import java.util.concurrent.TimeUnit
 
 class PlantReminderWorker(
     context: Context,
@@ -31,11 +30,7 @@ class PlantReminderWorker(
         val latitude = user.latitude
         val longitude = user.longitude
 
-        var temperature: Double? = null
-        var humidity: Int? = null
-        var windSpeed: Double? = null
-        var rainAmount: Double? = null
-        var weatherCondition: String? = null
+        var weatherSnapshot: WeatherSnapshot? = null
 
         if (latitude != null && longitude != null) {
             try {
@@ -45,95 +40,33 @@ class PlantReminderWorker(
                     apiKey = BuildConfig.OPENWEATHER_API_KEY
                 )
 
-                temperature = weather.main.temp
-                humidity = weather.main.humidity
-                windSpeed = weather.wind?.speed ?: 0.0
-                rainAmount = weather.rain?.oneHour ?: 0.0
-                weatherCondition = weather.weather.firstOrNull()?.main.orEmpty()
+                weatherSnapshot = WeatherSnapshot(
+                    temperatureC = weather.main.temp,
+                    humidityPercent = weather.main.humidity,
+                    windSpeedMetersPerSecond = weather.wind?.speed,
+                    rainMillimetersLastHour = weather.rain?.oneHour,
+                    condition = weather.weather.firstOrNull()?.main
+                )
             } catch (e: Exception) {
                 e.printStackTrace()
             }
         }
 
         for (plant in plants) {
-            if (shouldWater(plant.lastWateredDate, plant.wateringFrequencyDays)) {
+            CareNudgeEngine.buildNudges(
+                plant = plant,
+                weather = weatherSnapshot
+            ).forEach { nudge ->
+                val notification = TemplateCareNudgeCopywriter.write(nudge)
                 NotificationHelper.sendNotification(
                     applicationContext,
-                    "Water ${plant.name} 🌱",
-                    "Your plant is due for watering."
+                    notification.title,
+                    notification.message
                 )
-            }
-
-            if (plant.plantType.equals("Outdoor", ignoreCase = true)) {
-                if (
-                    weatherCondition != null &&
-                    rainAmount != null &&
-                    shouldSendRainWarning(weatherCondition!!, rainAmount!!)
-                ) {
-                    NotificationHelper.sendNotification(
-                        applicationContext,
-                        "Rain warning ☔",
-                        "Bring ${plant.name} indoors to avoid overwatering."
-                    )
-                }
-
-                if (windSpeed != null && shouldSendWindWarning(windSpeed!!)) {
-                    NotificationHelper.sendNotification(
-                        applicationContext,
-                        "Wind warning 🌬️",
-                        "Strong winds may damage ${plant.name}."
-                    )
-                }
-
-                if (temperature != null && shouldSendHeatWarning(temperature!!)) {
-                    NotificationHelper.sendNotification(
-                        applicationContext,
-                        "Heat warning ☀️",
-                        "${plant.name} may dry out faster in high heat."
-                    )
-                }
-
-                if (humidity != null && shouldSendHumidityWarning(humidity!!)) {
-                    NotificationHelper.sendNotification(
-                        applicationContext,
-                        "High moisture warning",
-                        "Wet conditions may affect ${plant.name}."
-                    )
-                }
             }
         }
 
         return Result.success()
-    }
-
-    private fun shouldWater(lastWatered: String, frequency: Int): Boolean {
-        if (lastWatered.isBlank()) return true
-
-        return try {
-            val formatter = SimpleDateFormat("yyyy-MM-dd", Locale.US)
-            val lastDate = formatter.parse(lastWatered) ?: return true
-            val diffMillis = Date().time - lastDate.time
-            val diffDays = TimeUnit.MILLISECONDS.toDays(diffMillis)
-            diffDays >= frequency
-        } catch (e: Exception) {
-            true
-        }
-    }
-
-    private fun shouldSendRainWarning(condition: String, rainAmount: Double): Boolean {
-        return condition.equals("Rain", ignoreCase = true) || rainAmount >= 7.0
-    }
-
-    private fun shouldSendWindWarning(windSpeed: Double): Boolean {
-        return windSpeed >= 10.0
-    }
-
-    private fun shouldSendHeatWarning(temp: Double): Boolean {
-        return temp >= 30.0
-    }
-
-    private fun shouldSendHumidityWarning(humidity: Int): Boolean {
-        return humidity >= 85
     }
 
     companion object {
