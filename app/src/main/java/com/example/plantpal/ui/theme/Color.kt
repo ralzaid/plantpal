@@ -2,15 +2,16 @@ package com.example.plantpal.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-val ForestGreen = Color(0xFF2F5D46)
-val MossGreen = Color(0xFF48745A)
-val SageGreen = Color(0xFF9FBC9F)
-val MintWash = Color(0xFFE8F1E6)
-val DewWhite = Color(0xFFFFFCF6)
-val IvoryMist = Color(0xFFF5F2E9)
-val PineInk = Color(0xFF1C2B21)
-val StoneLeaf = Color(0xFF617366)
-val MistOutline = Color(0xFFCCD7CB)
+val PlantPalGreen = Color(0xFF0D986A)
+val PlantPalMint = Color(0xFFAEE8D3)
+val PlantPalLightGreen = Color(0xFFBFE6A2)
+val PlantPalPaleGreen = Color(0xFFE0F3E0)
+val PlantPalPalePink = Color(0xFFFFE3DE)
+val PlantPalPaleYellow = Color(0xFFFFF7DD)
+val PlantPalWhite = Color(0xFFFFFFFF)
+val PlantPalInk = Color(0xFF12382C)
+val PlantPalMuted = Color(0xFF668177)
+val PlantPalOutline = Color(0xFF0D986A)
 
 val ForestNight = Color(0xFF18241C)
 val PineNeedle = Color(0xFF24382B)
