@@ -5,9 +5,9 @@ import androidx.compose.material3.Shapes
 import androidx.compose.ui.unit.dp
 
 val PlantPalShapes = Shapes(
-    extraSmall = RoundedCornerShape(14.dp),
-    small = RoundedCornerShape(18.dp),
-    medium = RoundedCornerShape(24.dp),
-    large = RoundedCornerShape(30.dp),
-    extraLarge = RoundedCornerShape(36.dp)
+    extraSmall = RoundedCornerShape(10.dp),
+    small = RoundedCornerShape(12.dp),
+    medium = RoundedCornerShape(16.dp),
+    large = RoundedCornerShape(22.dp),
+    extraLarge = RoundedCornerShape(28.dp)
 )

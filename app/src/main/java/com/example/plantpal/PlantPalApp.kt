@@ -6,6 +6,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,6 +15,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
@@ -46,9 +48,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -68,6 +74,7 @@ import com.example.plantpal.ui.screens.UiPlant
 import com.example.plantpal.ui.screens.UiUserProfile
 import com.example.plantpal.ui.screens.UiWateringLog
 import com.example.plantpal.ui.screens.UiWeatherSummary
+import com.example.plantpal.ui.theme.PlantPalLogoFont
 import com.example.plantpal.ui.theme.PlantPalTheme
 import kotlinx.parcelize.Parcelize
 
@@ -318,6 +325,7 @@ fun PlantPalApp() {
                             rainMillimetersLastHour = it.rainMillimetersLastHour
                         )
                     },
+                    temperatureUnit = profile.temperatureUnit,
                     onResearchPlant = { currentScreen = Screen.ResearchPlant },
                     onAddPlant = { currentScreen = Screen.AddPlant },
                     onPlantClick = { plantId ->
@@ -373,11 +381,12 @@ fun PlantPalApp() {
 
                 Screen.Profile -> ProfileScreen(
                     profile = profile,
-                    onSave = { name, email, remindersEnabled ->
+                    onSave = { name, email, remindersEnabled, temperatureUnit ->
                         profile = profile.copy(
                             name = name,
                             email = email,
-                            remindersEnabled = remindersEnabled
+                            remindersEnabled = remindersEnabled,
+                            temperatureUnit = temperatureUnit
                         )
                     },
                     onLogout = {
@@ -466,26 +475,25 @@ private fun PlantPalScaffold(
     onLogout: () -> Unit,
     content: @Composable (PaddingValues) -> Unit
 ) {
-    val showBottomBar = currentScreen == Screen.Home || currentScreen == Screen.Profile
+    val showBottomBar =
+        currentScreen == Screen.Home ||
+            currentScreen == Screen.AddPlant ||
+            currentScreen == Screen.ResearchPlant ||
+            currentScreen == Screen.Profile
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
-                title = { Text(screenTitle(currentScreen, homeGreeting)) },
+                title = { PlantPalTopBarTitle() },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background,
-                    titleContentColor = MaterialTheme.colorScheme.onBackground,
+                    titleContentColor = MaterialTheme.colorScheme.primary,
                     navigationIconContentColor = MaterialTheme.colorScheme.primary,
                     actionIconContentColor = MaterialTheme.colorScheme.primary
                 ),
                 navigationIcon = {
-                    if (
-                        currentScreen == Screen.AddPlant ||
-                        currentScreen == Screen.ResearchPlant ||
-                        currentScreen is Screen.PlantDetail ||
-                        currentScreen is Screen.Quiz
-                    ) {
+                    if (currentScreen is Screen.PlantDetail || currentScreen is Screen.Quiz) {
                         IconButton(onClick = onNavigateHome) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                         }
@@ -515,7 +523,7 @@ private fun PlantPalScaffold(
                             colors = NavigationBarItemDefaults.colors(
                                 selectedIconColor = MaterialTheme.colorScheme.primary,
                                 selectedTextColor = MaterialTheme.colorScheme.primary,
-                                indicatorColor = MaterialTheme.colorScheme.secondaryContainer,
+                                indicatorColor = Color.Transparent,
                                 unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
                                 unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -531,7 +539,7 @@ private fun PlantPalScaffold(
                             colors = NavigationBarItemDefaults.colors(
                                 selectedIconColor = MaterialTheme.colorScheme.primary,
                                 selectedTextColor = MaterialTheme.colorScheme.primary,
-                                indicatorColor = MaterialTheme.colorScheme.secondaryContainer,
+                                indicatorColor = Color.Transparent,
                                 unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
                                 unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -544,8 +552,8 @@ private fun PlantPalScaffold(
                         contentColor = MaterialTheme.colorScheme.onPrimary,
                         modifier = Modifier
                             .align(androidx.compose.ui.Alignment.TopCenter)
-                            .padding(top = 6.dp)
-                            .size(64.dp)
+                            .offset(y = (-22).dp)
+                            .size(58.dp)
                     ) {
                         Icon(Icons.Default.Add, contentDescription = "Add plant")
                     }
@@ -554,6 +562,27 @@ private fun PlantPalScaffold(
         },
         content = content
     )
+}
+
+@Composable
+private fun PlantPalTopBarTitle() {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Image(
+            painter = painterResource(R.drawable.logo),
+            contentDescription = "PlantPal",
+            modifier = Modifier.size(34.dp)
+        )
+        Text(
+            "PlantPal",
+            style = MaterialTheme.typography.titleLarge,
+            fontFamily = PlantPalLogoFont,
+            color = MaterialTheme.colorScheme.primary,
+            fontWeight = FontWeight.SemiBold
+        )
+    }
 }
 
 @Preview(showBackground = true, widthDp = 412, heightDp = 915)
@@ -578,6 +607,7 @@ fun PlantPalAppPreview() {
                     humidity = 76,
                     recommendation = "Conditions are stable. Follow your regular watering schedule."
                 ),
+                temperatureUnit = com.example.plantpal.ui.screens.TemperatureUnit.Celsius,
                 onResearchPlant = {},
                 onAddPlant = {},
                 onPlantClick = {}

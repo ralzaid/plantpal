@@ -16,10 +16,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Eco
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.WaterDrop
@@ -33,7 +31,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -47,6 +44,7 @@ import com.example.plantpal.ui.theme.PlantPalTheme
 fun HomeDashboardScreen(
     plants: List<UiPlant>,
     weather: UiWeatherSummary?,
+    temperatureUnit: TemperatureUnit,
     onResearchPlant: () -> Unit,
     onAddPlant: () -> Unit,
     onPlantClick: (Int) -> Unit
@@ -55,6 +53,7 @@ fun HomeDashboardScreen(
         modifier = Modifier.fillMaxSize(),
         plants = plants,
         weather = weather,
+        temperatureUnit = temperatureUnit,
         onResearchPlant = onResearchPlant,
         onAddPlant = onAddPlant,
         onPlantClick = onPlantClick
@@ -66,6 +65,7 @@ fun HomeDashboardContent(
     modifier: Modifier = Modifier,
     plants: List<UiPlant>,
     weather: UiWeatherSummary?,
+    temperatureUnit: TemperatureUnit,
     onResearchPlant: () -> Unit,
     onAddPlant: () -> Unit,
     onPlantClick: (Int) -> Unit
@@ -73,19 +73,25 @@ fun HomeDashboardContent(
     Column(
         modifier = modifier
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 20.dp),
-        verticalArrangement = Arrangement.spacedBy(18.dp)
+            .padding(horizontal = 18.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        SpacerHeight(4)
+        SpacerHeight(6)
 
         PlantResearchSearchBar(onClick = onResearchPlant)
 
         WeatherStats(
             weather = weather,
+            temperatureUnit = temperatureUnit,
             dueCount = plants.count { needsWaterToday(it) }
         )
 
-        Text("Alerts", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Text(
+            "Alerts",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.primary,
+            fontWeight = FontWeight.Medium
+        )
         AlertCard(plants = plants, weather = weather)
 
         if (plants.isEmpty()) {
@@ -94,6 +100,7 @@ fun HomeDashboardContent(
             Text(
                 "My plants",
                 style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.primary,
                 fontWeight = FontWeight.Bold
             )
             LazyRow(
@@ -118,26 +125,28 @@ private fun PlantResearchSearchBar(onClick: () -> Unit) {
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .height(56.dp)
+            .height(44.dp)
             .clickable(onClick = onClick),
         shape = MaterialTheme.shapes.medium,
         color = MaterialTheme.colorScheme.surface,
-        shadowElevation = 1.dp
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier.padding(horizontal = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
                 imageVector = Icons.Default.Search,
                 contentDescription = "Research plants",
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(20.dp)
             )
             Text(
                 "Research your next plant",
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.primary,
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.Medium,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -148,6 +157,7 @@ private fun PlantResearchSearchBar(onClick: () -> Unit) {
 @Composable
 private fun WeatherStats(
     weather: UiWeatherSummary?,
+    temperatureUnit: TemperatureUnit,
     dueCount: Int
 ) {
     Row(
@@ -156,7 +166,7 @@ private fun WeatherStats(
     ) {
         StatBlock(
             label = "Temp",
-            value = weather?.let { "${it.temp.toInt()}°C" } ?: "--",
+            value = weather?.let { formatTemperature(it.temp, temperatureUnit) } ?: "--",
             modifier = Modifier.weight(1f)
         )
         StatBlock(
@@ -172,6 +182,13 @@ private fun WeatherStats(
     }
 }
 
+private fun formatTemperature(tempCelsius: Double, unit: TemperatureUnit): String {
+    return when (unit) {
+        TemperatureUnit.Celsius -> "${tempCelsius.toInt()}°C"
+        TemperatureUnit.Fahrenheit -> "${((tempCelsius * 9 / 5) + 32).toInt()}°F"
+    }
+}
+
 @Composable
 private fun StatBlock(
     label: String,
@@ -181,7 +198,7 @@ private fun StatBlock(
     Surface(
         modifier = modifier.height(86.dp),
         shape = MaterialTheme.shapes.medium,
-        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.72f)
+        color = MaterialTheme.colorScheme.surface
     ) {
         Column(
             modifier = Modifier.padding(horizontal = 8.dp),
@@ -191,14 +208,16 @@ private fun StatBlock(
             Text(
                 label,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontWeight = FontWeight.SemiBold,
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.Medium,
                 textAlign = TextAlign.Center,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
             Text(
                 value,
-                style = MaterialTheme.typography.headlineSmall,
+                style = MaterialTheme.typography.titleLarge,
+                color = MaterialTheme.colorScheme.primary,
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center,
                 maxLines = 1,
@@ -217,7 +236,7 @@ private fun AlertCard(
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFF9E8EA))
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiary)
     ) {
         Row(
             modifier = Modifier.padding(14.dp),
@@ -230,17 +249,14 @@ private fun AlertCard(
                 shape = MaterialTheme.shapes.small
             ) {
                 Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        imageVector = Icons.Default.WaterDrop,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary
-                    )
+                    Icon(Icons.Default.WaterDrop, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                 }
             }
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     alert.title,
                     style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.Bold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -366,6 +382,7 @@ fun PlantSummaryCard(
                     plant.nickname.ifBlank { plant.name },
                     modifier = Modifier.fillMaxWidth(),
                     style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.Bold,
                     textAlign = TextAlign.Center,
                     maxLines = 2,
@@ -428,6 +445,7 @@ fun HomeDashboardPreview() {
                 humidity = 76,
                 recommendation = "Conditions are stable."
             ),
+            temperatureUnit = TemperatureUnit.Celsius,
             onResearchPlant = { },
             onAddPlant = { },
             onPlantClick = { }

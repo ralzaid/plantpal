@@ -127,7 +127,8 @@ fun AddPlantScreen(
         item {
             Text(
                 "Add Plant",
-                style = MaterialTheme.typography.headlineSmall
+                style = MaterialTheme.typography.headlineSmall,
+                color = MaterialTheme.colorScheme.primary
             )
         }
 
@@ -176,7 +177,11 @@ fun AddPlantScreen(
 
         item {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Placement", style = MaterialTheme.typography.titleSmall)
+                Text(
+                    "Placement",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)

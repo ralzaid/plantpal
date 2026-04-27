@@ -3,8 +3,14 @@ package com.example.plantpal.ui.screens
 data class UiUserProfile(
     val name: String = "",
     val email: String = "",
-    val remindersEnabled: Boolean = true
+    val remindersEnabled: Boolean = true,
+    val temperatureUnit: TemperatureUnit = TemperatureUnit.Celsius
 )
+
+enum class TemperatureUnit {
+    Celsius,
+    Fahrenheit
+}
 
 data class UiPlant(
     val id: Int,

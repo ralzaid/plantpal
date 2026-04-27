@@ -1,5 +1,6 @@
 package com.example.plantpal.ui.screens
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -19,6 +20,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -37,12 +39,13 @@ import com.example.plantpal.ui.theme.PlantPalTheme
 @Composable
 fun ProfileScreen(
     profile: UiUserProfile,
-    onSave: (String, String, Boolean) -> Unit,
+    onSave: (String, String, Boolean, TemperatureUnit) -> Unit,
     onLogout: () -> Unit
 ) {
     var name by rememberSaveable(profile.name) { mutableStateOf(profile.name) }
     var email by rememberSaveable(profile.email) { mutableStateOf(profile.email) }
     var remindersEnabled by rememberSaveable(profile.remindersEnabled) { mutableStateOf(profile.remindersEnabled) }
+    var temperatureUnit by rememberSaveable(profile.temperatureUnit) { mutableStateOf(profile.temperatureUnit) }
     var savedMessage by rememberSaveable { mutableStateOf(false) }
 
     LazyColumn(
@@ -93,6 +96,13 @@ fun ProfileScreen(
                             savedMessage = false
                         }
                     )
+                    TemperatureUnitSetting(
+                        selectedUnit = temperatureUnit,
+                        onSelected = {
+                            temperatureUnit = it
+                            savedMessage = false
+                        }
+                    )
                 }
             }
         }
@@ -107,7 +117,7 @@ fun ProfileScreen(
             }
             Button(
                 onClick = {
-                    onSave(name.trim(), email.trim(), remindersEnabled)
+                    onSave(name.trim(), email.trim(), remindersEnabled, temperatureUnit)
                     savedMessage = true
                 },
                 modifier = Modifier.fillMaxWidth()
@@ -115,14 +125,62 @@ fun ProfileScreen(
                 Text("Save Settings")
             }
         }
+    }
+}
 
-        item {
-            OutlinedButton(onClick = onLogout, modifier = Modifier.fillMaxWidth()) {
-                Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = null)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Sign Out")
-            }
+@Composable
+private fun TemperatureUnitSetting(
+    selectedUnit: TemperatureUnit,
+    onSelected: (TemperatureUnit) -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            "Temperature unit",
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.primary,
+            fontWeight = FontWeight.SemiBold
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            TemperatureUnitButton(
+                label = "Celsius",
+                selected = selectedUnit == TemperatureUnit.Celsius,
+                onClick = { onSelected(TemperatureUnit.Celsius) },
+                modifier = Modifier.weight(1f)
+            )
+            TemperatureUnitButton(
+                label = "Fahrenheit",
+                selected = selectedUnit == TemperatureUnit.Fahrenheit,
+                onClick = { onSelected(TemperatureUnit.Fahrenheit) },
+                modifier = Modifier.weight(1f)
+            )
         }
+    }
+}
+
+@Composable
+private fun TemperatureUnitButton(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier.clickable(onClick = onClick),
+        shape = MaterialTheme.shapes.small,
+        color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
+    ) {
+        Text(
+            label,
+            modifier = Modifier.padding(vertical = 10.dp),
+            color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary,
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.SemiBold,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+        )
     }
 }
 
@@ -139,8 +197,17 @@ fun SettingRow(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(modifier = Modifier.weight(1f)) {
-            Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-            Text(description, style = MaterialTheme.typography.bodySmall)
+            Text(
+                title,
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.primary,
+                fontWeight = FontWeight.SemiBold
+            )
+            Text(
+                description,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.primary
+            )
         }
         Switch(checked = checked, onCheckedChange = onCheckedChange)
     }
@@ -152,7 +219,7 @@ fun ProfileScreenPreview() {
     PlantPalTheme {
         ProfileScreen(
             profile = previewProfile,
-            onSave = { _, _, _ -> },
+            onSave = { _, _, _, _ -> },
             onLogout = { }
         )
     }
