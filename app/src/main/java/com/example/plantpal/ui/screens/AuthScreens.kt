@@ -1,6 +1,7 @@
 package com.example.plantpal.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -9,12 +10,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -24,11 +27,13 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.example.plantpal.R
 import com.example.plantpal.ui.theme.PlantPalTheme
 
 @Composable
@@ -43,7 +48,8 @@ fun LoginScreen(
 
     AuthScreenScaffold(
         title = "Welcome back",
-        subtitle = "Track every plant like a daily wellness habit."
+        subtitle = "Track every plant like a daily wellness habit.",
+        backgroundRes = R.drawable.login_bg
     ) {
         OutlinedTextField(
             value = email,
@@ -53,7 +59,8 @@ fun LoginScreen(
             },
             label = { Text("Email") },
             modifier = Modifier.fillMaxWidth(),
-            singleLine = true
+            singleLine = true,
+            colors = plantPalTextFieldColors()
         )
         OutlinedTextField(
             value = password,
@@ -64,7 +71,8 @@ fun LoginScreen(
             label = { Text("Password") },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
-            visualTransformation = PasswordVisualTransformation()
+            visualTransformation = PasswordVisualTransformation(),
+            colors = plantPalTextFieldColors()
         )
 
         val messageToShow = localErrorMessage ?: authErrorMessage
@@ -86,7 +94,11 @@ fun LoginScreen(
                     }
                 }
             },
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
+            )
         ) {
             Text("Log In")
         }
@@ -109,8 +121,9 @@ fun SignUpScreen(
     var errorMessage by rememberSaveable { mutableStateOf<String?>(null) }
 
     AuthScreenScaffold(
-        title = "Create your PlantPal profile",
-        subtitle = "Set up your account so your tracking dashboard feels personal from day one."
+        title = "Create your profile",
+        subtitle = "Set up your account so your tracking dashboard feels personal from day one!",
+        backgroundRes = R.drawable.signin_bg
     ) {
         OutlinedTextField(
             value = name,
@@ -120,7 +133,8 @@ fun SignUpScreen(
             },
             label = { Text("Name") },
             modifier = Modifier.fillMaxWidth(),
-            singleLine = true
+            singleLine = true,
+            colors = plantPalTextFieldColors()
         )
         OutlinedTextField(
             value = email,
@@ -130,7 +144,8 @@ fun SignUpScreen(
             },
             label = { Text("Email") },
             modifier = Modifier.fillMaxWidth(),
-            singleLine = true
+            singleLine = true,
+            colors = plantPalTextFieldColors()
         )
         OutlinedTextField(
             value = password,
@@ -141,7 +156,8 @@ fun SignUpScreen(
             label = { Text("Password") },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
-            visualTransformation = PasswordVisualTransformation()
+            visualTransformation = PasswordVisualTransformation(),
+            colors = plantPalTextFieldColors()
         )
         OutlinedTextField(
             value = confirmPassword,
@@ -152,7 +168,8 @@ fun SignUpScreen(
             label = { Text("Confirm password") },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
-            visualTransformation = PasswordVisualTransformation()
+            visualTransformation = PasswordVisualTransformation(),
+            colors = plantPalTextFieldColors()
         )
 
         if (errorMessage != null) {
@@ -178,7 +195,11 @@ fun SignUpScreen(
                     }
                 }
             },
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
+            )
         ) {
             Text("Create Account")
         }
@@ -193,70 +214,69 @@ fun SignUpScreen(
 fun AuthScreenScaffold(
     title: String,
     subtitle: String,
+    backgroundRes: Int,
     content: @Composable ColumnScope.() -> Unit
 ) {
     Box(
         modifier = Modifier
-            .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(
-                        MaterialTheme.colorScheme.primaryContainer,
-                        MaterialTheme.colorScheme.background,
-                        MaterialTheme.colorScheme.background
-                    )
-                )
-            )
-            .padding(24.dp),
+            .fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
-        Box(
+        Image(
+            painter = painterResource(backgroundRes),
+            contentDescription = null,
             modifier = Modifier
-                .align(Alignment.TopStart)
-                .padding(top = 18.dp)
-                .size(120.dp)
-                .background(
-                    color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.65f),
-                    shape = CircleShape
-                )
+                .matchParentSize()
+                .background(MaterialTheme.colorScheme.background),
+            contentScale = ContentScale.Crop
         )
-        Box(
+        Image(
+            painter = painterResource(R.drawable.logo),
+            contentDescription = "PlantPal",
             modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(bottom = 40.dp)
-                .size(160.dp)
-                .background(
-                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f),
-                    shape = CircleShape
-                )
+                .align(Alignment.TopCenter)
+                .padding(top = 64.dp)
+                .size(92.dp)
         )
         Card(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(24.dp)
+                .widthIn(max = 320.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(24.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
+                    .padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Text(
-                    "PlantPal",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.primary
-                )
                 Text(
                     title,
                     style = MaterialTheme.typography.headlineSmall,
+                    color = MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.Bold
                 )
-                Text(subtitle, style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.SemiBold
+                )
                 content()
             }
         }
     }
 }
+
+@Composable
+private fun plantPalTextFieldColors() = OutlinedTextFieldDefaults.colors(
+    focusedBorderColor = MaterialTheme.colorScheme.primary,
+    unfocusedBorderColor = MaterialTheme.colorScheme.primary,
+    focusedLabelColor = MaterialTheme.colorScheme.primary,
+    cursorColor = MaterialTheme.colorScheme.primary
+)
 
 @Preview(showBackground = true)
 @Composable
@@ -264,14 +284,16 @@ fun LoginScreenPreview() {
     PlantPalTheme {
         AuthScreenScaffold(
             title = "Welcome back",
-            subtitle = "Track every plant like a daily wellness habit."
+            subtitle = "Track every plant like a daily wellness habit.",
+            backgroundRes = R.drawable.login_bg
         ) {
             OutlinedTextField(
                 value = "user@example.com",
                 onValueChange = { },
                 label = { Text("Email") },
                 modifier = Modifier.fillMaxWidth(),
-                singleLine = true
+                singleLine = true,
+                colors = plantPalTextFieldColors()
             )
             OutlinedTextField(
                 value = "password123",
@@ -279,7 +301,8 @@ fun LoginScreenPreview() {
                 label = { Text("Password") },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
-                visualTransformation = PasswordVisualTransformation()
+                visualTransformation = PasswordVisualTransformation(),
+                colors = plantPalTextFieldColors()
             )
             Button(onClick = { }, modifier = Modifier.fillMaxWidth()) {
                 Text("Log In")
