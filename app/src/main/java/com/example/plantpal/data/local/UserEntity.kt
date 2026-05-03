@@ -12,6 +12,7 @@ data class UserEntity(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
     val username: String,
     val passwordHash: String,
+    val displayName: String = "",
     val experienceLevel: String = "",
     val numberOfPlants: Int = 0,
     val latitude: Double? = null,

@@ -1,6 +1,7 @@
 package com.example.plantpal
 
 import android.Manifest
+import android.content.Context
 import android.os.Parcelable
 import android.content.pm.PackageManager
 import android.os.Build
@@ -106,11 +107,14 @@ sealed class Screen : Parcelable {
 
 @Composable
 fun PlantPalApp() {
-    var profile by remember { mutableStateOf(UiUserProfile()) }
+    val context = LocalContext.current
+    var profile by remember { mutableStateOf(loadProfileFromPrefs(context)) }
 
     val plantViewModel: PlantViewModel = viewModel()
     val dbPlants by plantViewModel.plants.collectAsState()
     val currentUserId by plantViewModel.currentUserId.collectAsState()
+    val currentUsername by plantViewModel.currentUsername.collectAsState()
+    val currentDisplayName by plantViewModel.currentDisplayName.collectAsState()
     val isSessionReady by plantViewModel.isSessionReady.collectAsState()
     val hasSavedHomeLocation by plantViewModel.hasSavedHomeLocation.collectAsState()
     val locationErrorMessage by plantViewModel.locationErrorMessage.collectAsState()
@@ -129,8 +133,6 @@ fun PlantPalApp() {
             }
         )
     }
-
-    val context = LocalContext.current
 
     var showLocationConsentDialog by rememberSaveable { mutableStateOf(false) }
     var locationConsentChecked by rememberSaveable { mutableStateOf(false) }
@@ -256,8 +258,11 @@ fun PlantPalApp() {
                     plantViewModel.registerLocalUser(
                         username = email,
                         password = password,
+                        displayName = name,
                         onSuccess = {
-                            profile = profile.copy(name = name, email = email)
+                            val newProfile = profile.copy(name = name, email = email)
+                            profile = newProfile
+                            saveProfileToPrefs(context, newProfile)
                             currentScreen = Screen.Home
                             locationConsentHandledForSession = false
                             locationConsentChecked = false
@@ -277,6 +282,15 @@ fun PlantPalApp() {
                         username = email,
                         password = password,
                         onSuccess = {
+                            // Pre-fill profile with the login email and name from DB
+                            val existing = loadProfileFromPrefs(context)
+                            val populated = existing.copy(
+                                email = email,
+                                name = currentDisplayName?.takeIf { it.isNotBlank() }
+                                    ?: existing.name
+                            )
+                            profile = populated
+                            saveProfileToPrefs(context, populated)
                             currentScreen = Screen.Home
                             locationConsentHandledForSession = false
                             locationConsentChecked = false
@@ -382,12 +396,14 @@ fun PlantPalApp() {
                 Screen.Profile -> ProfileScreen(
                     profile = profile,
                     onSave = { name, email, remindersEnabled, temperatureUnit ->
-                        profile = profile.copy(
+                        val newProfile = profile.copy(
                             name = name,
                             email = email,
                             remindersEnabled = remindersEnabled,
                             temperatureUnit = temperatureUnit
                         )
+                        profile = newProfile
+                        saveProfileToPrefs(context, newProfile)
                     },
                     onLogout = {
                         plantViewModel.logout()
@@ -477,9 +493,9 @@ private fun PlantPalScaffold(
 ) {
     val showBottomBar =
         currentScreen == Screen.Home ||
-            currentScreen == Screen.AddPlant ||
-            currentScreen == Screen.ResearchPlant ||
-            currentScreen == Screen.Profile
+                currentScreen == Screen.AddPlant ||
+                currentScreen == Screen.ResearchPlant ||
+                currentScreen == Screen.Profile
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -614,4 +630,28 @@ fun PlantPalAppPreview() {
             )
         }
     }
+}
+
+private const val PROFILE_PREFS = "plantpal_profile"
+
+private fun loadProfileFromPrefs(context: Context): UiUserProfile {
+    val prefs = context.getSharedPreferences(PROFILE_PREFS, Context.MODE_PRIVATE)
+    return UiUserProfile(
+        name = prefs.getString("name", "") ?: "",
+        email = prefs.getString("email", "") ?: "",
+        remindersEnabled = prefs.getBoolean("reminders", true),
+        temperatureUnit = if (prefs.getString("temp_unit", "Celsius") == "Fahrenheit")
+            com.example.plantpal.ui.screens.TemperatureUnit.Fahrenheit
+        else
+            com.example.plantpal.ui.screens.TemperatureUnit.Celsius
+    )
+}
+
+private fun saveProfileToPrefs(context: Context, profile: UiUserProfile) {
+    context.getSharedPreferences(PROFILE_PREFS, Context.MODE_PRIVATE).edit()
+        .putString("name", profile.name)
+        .putString("email", profile.email)
+        .putBoolean("reminders", profile.remindersEnabled)
+        .putString("temp_unit", profile.temperatureUnit.name)
+        .apply()
 }

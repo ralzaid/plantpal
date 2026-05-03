@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.WaterDrop
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -21,7 +22,12 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -195,6 +201,36 @@ private fun WateringCounter(
     onWaterPlant: () -> Unit
 ) {
     val daysRemaining = daysUntilNextWatering(plant)
+    var showOverwaterDialog by remember { mutableStateOf(false) }
+    var showOverwaterBanner by remember { mutableStateOf(false) }
+
+    if (showOverwaterDialog) {
+        AlertDialog(
+            onDismissRequest = { showOverwaterDialog = false },
+            title = { Text("Water early?") },
+            text = {
+                Text(
+                    "${plant.nickname.ifBlank { plant.name }} isn't due for water for another " +
+                            "$daysRemaining ${if (daysRemaining == 1L) "day" else "days"}. " +
+                            "Watering too often can overwater your plant. Water anyway?"
+                )
+            },
+            confirmButton = {
+                Button(onClick = {
+                    showOverwaterDialog = false
+                    onWaterPlant()
+                    showOverwaterBanner = true
+                }) {
+                    Text("Water anyway")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showOverwaterDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
 
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -216,10 +252,23 @@ private fun WateringCounter(
                 "watering every ${plant.wateringFrequencyDays} days",
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+            if (showOverwaterBanner) {
+                Text(
+                    text = "⚠️ Watered early — too much water can cause root rot. Monitor the soil and let it dry out before the next watering.",
+                    color = Color(0xFFB45309),
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
         }
 
         Button(
-            onClick = onWaterPlant,
+            onClick = {
+                if (daysRemaining > 0) {
+                    showOverwaterDialog = true
+                } else {
+                    onWaterPlant()
+                }
+            },
             enabled = !wateredToday,
             modifier = Modifier.size(84.dp),
             colors = ButtonDefaults.buttonColors(
@@ -257,8 +306,8 @@ private fun displayCareInstructions(plant: UiPlant): String {
         instructions.contains("can be added later", ignoreCase = true)
     ) {
         return "Watering: Check the top inch of soil and water only when it feels dry.\n\n" +
-            "Light: Start with ${plant.lightNeeds.ifBlank { "bright indirect light" }}.\n\n" +
-            "Care: Keep the plant in a stable spot with drainage and watch for leaf changes."
+                "Light: Start with ${plant.lightNeeds.ifBlank { "bright indirect light" }}.\n\n" +
+                "Care: Keep the plant in a stable spot with drainage and watch for leaf changes."
     }
     return instructions
 }

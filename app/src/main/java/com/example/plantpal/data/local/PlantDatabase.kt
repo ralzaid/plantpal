@@ -17,7 +17,7 @@ import androidx.room.RoomDatabase
         PlantObservationEntity::class,
         DailyWeatherEntity::class
     ],
-    version = 6,
+    version = 7,
     exportSchema = false
 )
 abstract class PlantDatabase : RoomDatabase() {

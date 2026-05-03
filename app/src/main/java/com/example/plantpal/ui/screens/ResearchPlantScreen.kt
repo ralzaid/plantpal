@@ -29,6 +29,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -381,6 +386,8 @@ private fun CareInfoCard(
     title: String,
     body: String
 ) {
+    var expanded by remember { mutableStateOf(false) }
+
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.medium,
@@ -394,9 +401,15 @@ private fun CareInfoCard(
             Text(
                 body,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 6,
-                overflow = TextOverflow.Ellipsis
+                maxLines = if (expanded) Int.MAX_VALUE else 6,
+                overflow = if (expanded) TextOverflow.Clip else TextOverflow.Ellipsis
             )
+            TextButton(
+                onClick = { expanded = !expanded },
+                modifier = Modifier.align(Alignment.End)
+            ) {
+                Text(if (expanded) "Show less" else "Show more")
+            }
         }
     }
 }

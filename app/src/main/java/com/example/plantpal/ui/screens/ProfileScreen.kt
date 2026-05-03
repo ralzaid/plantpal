@@ -13,16 +13,19 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -42,6 +45,7 @@ fun ProfileScreen(
     onSave: (String, String, Boolean, TemperatureUnit) -> Unit,
     onLogout: () -> Unit
 ) {
+    var isEditing by rememberSaveable { mutableStateOf(false) }
     var name by rememberSaveable(profile.name) { mutableStateOf(profile.name) }
     var email by rememberSaveable(profile.email) { mutableStateOf(profile.email) }
     var remindersEnabled by rememberSaveable(profile.remindersEnabled) { mutableStateOf(profile.remindersEnabled) }
@@ -56,75 +60,165 @@ fun ProfileScreen(
         contentPadding = PaddingValues(vertical = 16.dp)
     ) {
         item {
-            OutlinedTextField(
-                value = name,
-                onValueChange = {
-                    name = it
-                    savedMessage = false
-                },
-                label = { Text("Display name") },
+            Row(
                 modifier = Modifier.fillMaxWidth(),
-                singleLine = true
-            )
-        }
-
-        item {
-            OutlinedTextField(
-                value = email,
-                onValueChange = {
-                    email = it
-                    savedMessage = false
-                },
-                label = { Text("Email") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true
-            )
-        }
-
-        item {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    SettingRow(
-                        title = "Daily reminders",
-                        description = "Simple placeholder setting for the prototype.",
-                        checked = remindersEnabled,
-                        onCheckedChange = {
-                            remindersEnabled = it
-                            savedMessage = false
-                        }
+                Text(
+                    "Profile",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+                if (!isEditing) {
+                    IconButton(onClick = { isEditing = true; savedMessage = false }) {
+                        Icon(Icons.Default.Edit, contentDescription = "Edit profile")
+                    }
+                }
+            }
+        }
+
+        if (!isEditing) {
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        ProfileInfoRow(label = "Name", value = profile.name.ifBlank { "Not set" })
+                        ProfileInfoRow(label = "Email", value = profile.email.ifBlank { "Not set" })
+                        ProfileInfoRow(
+                            label = "Temperature unit",
+                            value = if (profile.temperatureUnit == TemperatureUnit.Fahrenheit) "Fahrenheit" else "Celsius"
+                        )
+                        ProfileInfoRow(
+                            label = "Daily reminders",
+                            value = if (profile.remindersEnabled) "On" else "Off"
+                        )
+                    }
+                }
+            }
+        } else {
+            item {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = {
+                        name = it
+                        savedMessage = false
+                    },
+                    label = { Text("Display name") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+            }
+
+            item {
+                OutlinedTextField(
+                    value = email,
+                    onValueChange = {
+                        email = it
+                        savedMessage = false
+                    },
+                    label = { Text("Email") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+            }
+
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        SettingRow(
+                            title = "Daily reminders",
+                            description = "Simple placeholder setting for the prototype.",
+                            checked = remindersEnabled,
+                            onCheckedChange = {
+                                remindersEnabled = it
+                                savedMessage = false
+                            }
+                        )
+                        TemperatureUnitSetting(
+                            selectedUnit = temperatureUnit,
+                            onSelected = {
+                                temperatureUnit = it
+                                savedMessage = false
+                            }
+                        )
+                    }
+                }
+            }
+
+            item {
+                if (savedMessage) {
+                    Text(
+                        "Profile saved.",
+                        color = MaterialTheme.colorScheme.primary,
+                        style = MaterialTheme.typography.bodySmall
                     )
-                    TemperatureUnitSetting(
-                        selectedUnit = temperatureUnit,
-                        onSelected = {
-                            temperatureUnit = it
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = {
+                            name = profile.name
+                            email = profile.email
+                            remindersEnabled = profile.remindersEnabled
+                            temperatureUnit = profile.temperatureUnit
                             savedMessage = false
-                        }
-                    )
+                            isEditing = false
+                        },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("Cancel")
+                    }
+                    Button(
+                        onClick = {
+                            onSave(name.trim(), email.trim(), remindersEnabled, temperatureUnit)
+                            savedMessage = true
+                            isEditing = false
+                        },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("Save")
+                    }
                 }
             }
         }
 
         item {
-            if (savedMessage) {
-                Text(
-                    "Profile saved.",
-                    color = MaterialTheme.colorScheme.primary,
-                    style = MaterialTheme.typography.bodySmall
-                )
-            }
-            Button(
-                onClick = {
-                    onSave(name.trim(), email.trim(), remindersEnabled, temperatureUnit)
-                    savedMessage = true
-                },
+            OutlinedButton(
+                onClick = onLogout,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Save Settings")
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.Logout,
+                    contentDescription = null
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Log Out")
             }
         }
+    }
+}
+
+@Composable
+private fun ProfileInfoRow(label: String, value: String) {
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text(
+            label,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            value,
+            style = MaterialTheme.typography.bodyLarge,
+            fontWeight = FontWeight.Medium
+        )
     }
 }
 

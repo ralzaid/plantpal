@@ -59,6 +59,9 @@ class PlantViewModel(application: Application) : AndroidViewModel(application) {
     private val _currentUsername = MutableStateFlow<String?>(null)
     val currentUsername: StateFlow<String?> = _currentUsername
 
+    private val _currentDisplayName = MutableStateFlow<String?>(null)
+    val currentDisplayName: StateFlow<String?> = _currentDisplayName
+
     private val _currentPassword = MutableStateFlow<String?>(null)
 
     private val _isSessionReady = MutableStateFlow(false)
@@ -133,6 +136,7 @@ class PlantViewModel(application: Application) : AndroidViewModel(application) {
 
                 else -> {
                     _currentUsername.value = cleanedUsername
+                    _currentDisplayName.value = existingUser.displayName
                     _currentPassword.value = password
                     _currentUserId.value = existingUser.id
                     persistSession(existingUser.id, cleanedUsername)
@@ -147,10 +151,12 @@ class PlantViewModel(application: Application) : AndroidViewModel(application) {
     fun registerLocalUser(
         username: String,
         password: String,
+        displayName: String = "",
         onSuccess: () -> Unit,
         onError: (String) -> Unit
     ) {
         val cleanedUsername = username.trim()
+        val cleanedDisplayName = displayName.trim()
 
         if (cleanedUsername.isBlank() || password.isBlank()) {
             onError("Enter a username and password.")
@@ -169,6 +175,7 @@ class PlantViewModel(application: Application) : AndroidViewModel(application) {
                 UserEntity(
                     username = cleanedUsername,
                     passwordHash = password,
+                    displayName = cleanedDisplayName,
                     experienceLevel = "",
                     numberOfPlants = 0,
                     latitude = null,
@@ -177,6 +184,7 @@ class PlantViewModel(application: Application) : AndroidViewModel(application) {
             ).toInt()
 
             _currentUsername.value = cleanedUsername
+            _currentDisplayName.value = cleanedDisplayName
             _currentPassword.value = password
             _currentUserId.value = userId
             persistSession(userId, cleanedUsername)
@@ -189,6 +197,7 @@ class PlantViewModel(application: Application) : AndroidViewModel(application) {
     fun logout() {
         _currentUserId.value = null
         _currentUsername.value = null
+        _currentDisplayName.value = null
         _currentPassword.value = null
         _hasSavedHomeLocation.value = false
         _locationErrorMessage.value = null
@@ -207,6 +216,7 @@ class PlantViewModel(application: Application) : AndroidViewModel(application) {
                     if (savedUser != null && savedUser.username == savedUsername) {
                         _currentUserId.value = savedUser.id
                         _currentUsername.value = savedUser.username
+                        _currentDisplayName.value = savedUser.displayName
                         _currentPassword.value = null
                         _authErrorMessage.value = null
                         refreshSavedLocationFlag(savedUser.id)
@@ -529,9 +539,9 @@ class PlantViewModel(application: Application) : AndroidViewModel(application) {
     private fun defaultCareInstructions(plantName: String): String {
         val displayName = plantName.ifBlank { "this plant" }
         return "Care profile for $displayName:\n\n" +
-            "Watering: Check the top inch of soil once a week and water only when it feels dry.\n\n" +
-            "Light: Start with bright indirect light, then adjust if leaves scorch, fade, or stretch.\n\n" +
-            "Care: Keep the plant in a stable spot with drainage and avoid sudden changes in temperature or light."
+                "Watering: Check the top inch of soil once a week and water only when it feels dry.\n\n" +
+                "Light: Start with bright indirect light, then adjust if leaves scorch, fade, or stretch.\n\n" +
+                "Care: Keep the plant in a stable spot with drainage and avoid sudden changes in temperature or light."
     }
 
     private fun wateringFrequencyDaysFor(watering: String?): Int {
